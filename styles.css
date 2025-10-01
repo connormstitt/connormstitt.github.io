@@ -21,18 +21,27 @@ h2, .tab {
 ======================================= */
 .tabs {
     display: flex;
-    justify-content: right;
+    justify-content: center;   /* center tabs inside container */
     background-color: #1e407c;
     list-style: none;
-    margin: 20px 0;
+    margin: 20px auto;         /* auto centers inside body */
     padding: 0;
     color: white;
-    flex-wrap: wrap;        /* allow wrapping on smaller screens */
+    flex-wrap: wrap;
+    max-width: 600px;          /* match content-container cap */
+    width: 100%;               /* shrink down on small screens */
+    box-sizing: border-box;
 }
+
 
 .tabs li a {
     color: white;
     text-decoration: none;
+}
+
+.tabs li {
+  flex: 1;        /* optional: make tabs equal width */
+  text-align: center;
 }
 
 .tab {
@@ -49,6 +58,9 @@ h2, .tab {
 
 [data-tab-content] {
     display: none;
+    width: 100%;          /* takes all available space */
+    box-sizing: border-box;
+    margin: 0 auto;       /* centers content-container if you give it a max-width */
 }
 
 .active[data-tab-content] {
@@ -100,10 +112,12 @@ h2, .tab {
    Content Container & Bio
 ======================================= */
 .content-container {
-    width: 100%;
-    max-width: 600px;
-    padding: 20px;
-    box-sizing: border-box;
+  width: 100%;
+  max-width: 600px;
+  min-width: 600px;   /* 👈 prevents shrinking below 600px */
+  margin: 0 auto;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
 .bio {
@@ -200,7 +214,7 @@ h2, .tab {
 }
 
 @media screen and (max-width: 600px) {
-    .footer-seal img {
-        max-height: 80px;
-    }
+  .content-container {
+    min-width: 100%; /* allow it to shrink properly on small screens */
+  }
 }
