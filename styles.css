@@ -27,6 +27,7 @@ h2, .tab {
     margin: 20px 0;
     padding: 0;
     color: white;
+    flex-wrap: wrap;        /* allow wrapping on smaller screens */
 }
 
 .tabs li a {
@@ -37,9 +38,9 @@ h2, .tab {
 .tab {
     cursor: pointer;
     padding: 10px 25px;
-    border-radius: 0px;
     transition: background-color 0.2s ease;
     font-size: 1.1em;
+    min-height: 44px; /* accessibility */
 }
 
 .tab:hover {
@@ -66,6 +67,7 @@ h2, .tab {
     justify-content: space-between;
     align-items: center;
     padding: 0 15px 15px 15px;
+    flex-wrap: wrap; /* allows stacking if narrow */
 }
 
 .name {
@@ -88,7 +90,9 @@ h2, .tab {
 }
 
 .contact img {
-    height: 250px;
+    max-width: 250px;   /* keeps it from blowing up on desktop */
+    width: 100%;        /* shrink on small screens */
+    height: auto;
     object-fit: cover;
 }
 
@@ -97,7 +101,7 @@ h2, .tab {
 ======================================= */
 .content-container {
     width: 100%;
-    max-width: 600px; /* responsive max */
+    max-width: 600px;
     padding: 20px;
     box-sizing: border-box;
 }
@@ -115,7 +119,6 @@ h2, .tab {
     margin-top: 20px;
     background-color: #1e407c;
     padding: 10px;
-    border-radius: 0px;
     text-align: center;
     color: white;
     font-family: 'Roboto Condensed', sans-serif;
@@ -135,36 +138,30 @@ h2, .tab {
    Footer Seal
 ======================================= */
 .footer-seal {
-    display: flex;          /* horizontal by default */
+    display: flex;
     justify-content: center;
     align-items: center;
-    margin-top: 0;
     padding-top: 20px;
     gap: 20px;
+    flex-wrap: wrap; /* makes logos wrap instead of overflow */
 }
 
 .footer-seal img {
-    height: 120px;
+    max-height: 120px;  /* cap size on desktop */
+    width: auto;
+    height: auto;
 }
 
 /* =======================================
    Responsive / Mobile Styles
 ======================================= */
 @media screen and (max-width: 600px) {
-
-    /* Stack header vertically */
     .header {
         flex-direction: column;
         align-items: center;
         text-align: center;
     }
 
-
-.contact img,
-.footer-seal img {
-    max-width: 100%;
-    height: auto;
-}
     .name h1 {
         font-size: 1.8em;
     }
@@ -173,9 +170,7 @@ h2, .tab {
         font-size: 1.1em;
     }
 
-    /* Make tabs wrap and center */
     .tabs {
-        flex-wrap: wrap;
         justify-content: center;
     }
 
@@ -183,11 +178,12 @@ h2, .tab {
         padding: 8px 15px;
         font-size: 1em;
     }
-* {
-    max-width: 100%;
-    box-sizing: border-box;
-}
-    /* Footer logos stack vertically */
+
+    .content-container {
+        padding: 10px;
+        max-width: 100%; /* full width on phone */
+    }
+
     .footer-seal {
         flex-direction: column;
         gap: 10px;
@@ -195,22 +191,16 @@ h2, .tab {
 
     .footer-seal img {
         height: 80px;
-        margin: 0;
     }
 
-    /* Smaller text in bio and contact info */
     .bio p,
     .contact-info p {
         font-size: 0.95em;
     }
 }
-@media screen and (max-width: 600px) {
-    .content-container {
-        padding: 10px; 
-        max-width: 100%; /* use full width */
-    }
-}
 
-a, .tab {
-    min-height: 44px; /* Apple/Google touch guideline */
+@media screen and (max-width: 600px) {
+    .footer-seal img {
+        max-height: 80px;
+    }
 }
