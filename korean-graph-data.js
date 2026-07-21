@@ -1,5 +1,5 @@
 window.VAULT_GRAPH = {
- "generated": "2026-07-21T15:44",
+ "generated": "2026-07-21T15:49",
  "source": "한국어 어휘",
  "nodes": [
   {
