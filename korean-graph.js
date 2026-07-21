@@ -86,7 +86,7 @@ window.PLACEHOLDER_GRAPH = {
   const jitter = () => (Math.random() - 0.5) * 8;
   const nodes = raw.nodes.map((n, i) => {
     const angle  = (i / raw.nodes.length) * Math.PI * 2;
-    const spread = Math.min(clientW, clientH) * 0.35 + (i % 7) * 18;
+    const spread = Math.min(clientW, clientH) * 0.15 + (i % 7) * 8;
     return {
       ...n,
       url: urlFor(n),
@@ -116,7 +116,7 @@ window.PLACEHOLDER_GRAPH = {
       x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x);
       y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y);
     });
-    const pad = 60, aspect = clientW / clientH;
+    const pad = 30, aspect = clientW / clientH;
     x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
     let w = x1 - x0, h = y1 - y0;
     if (w / h < aspect) { const nw = h * aspect; x0 -= (nw - w) / 2; w = nw; }
@@ -206,7 +206,7 @@ window.PLACEHOLDER_GRAPH = {
   let alpha   = 1;
   let running = false;
   let draggingNode = null;
-  const LINK_LEN = 80;
+  const LINK_LEN = 55;
 
   function step() {
     const { grid, key } = buildGrid();
@@ -216,8 +216,8 @@ window.PLACEHOLDER_GRAPH = {
       if (n === draggingNode) return;
       repelFromGrid(n, grid, key);
       // gentle centering
-      n.vx += (cx - n.x) * 0.0008 * alpha;
-      n.vy += (cy - n.y) * 0.0008 * alpha;
+      n.vx += (cx - n.x) * 0.004 * alpha;
+      n.vy += (cy - n.y) * 0.004 * alpha;
     });
 
     links.forEach(l => {
@@ -333,10 +333,13 @@ window.PLACEHOLDER_GRAPH = {
   window.addEventListener("touchend",  onEnd);
 
   // ── wheel zoom ────────────────────────────────────────────────────────────
-  wrap.addEventListener("wheel", evt => {
+  // Must be registered on the SVG element AND the wrap with passive:false
+  // so the browser doesn't swallow the event for page scrolling
+  function onWheel(evt) {
     evt.preventDefault();
+    evt.stopPropagation();
     userMoved = true;
-    const factor = evt.deltaY > 0 ? 1.12 : 1 / 1.12;
+    const factor = evt.deltaY > 0 ? 1.25 : 1 / 1.25;
     const scale  = clientW / (vb.w * factor);
     if (scale < 0.02 || scale > 12) return;
     const p = localPoint(evt), w = toWorld(p.x, p.y);
@@ -344,7 +347,9 @@ window.PLACEHOLDER_GRAPH = {
     vb.y = w.y - (w.y - vb.y) * factor;
     vb.w *= factor; vb.h *= factor;
     applyVB();
-  }, { passive: false });
+  }
+  wrap.addEventListener("wheel", onWheel, { passive: false });
+  svg.addEventListener("wheel",  onWheel, { passive: false });
 
   window.addEventListener("resize", () => {
     clientW = wrap.clientWidth; clientH = wrap.clientHeight;
