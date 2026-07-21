@@ -61,6 +61,9 @@ window.PLACEHOLDER_GRAPH = {
   });
   const colorOf = n => PALETTE[groupOrder.indexOf(n.group) % PALETTE.length] || "#888";
 
+  // ── collect all tags across nodes ────────────────────────────────────────
+  const allTags = [...new Set(raw.nodes.flatMap(n => n.tags || []))].sort();
+
   // ── legend & count ────────────────────────────────────────────────────────
   if (legendEl) {
     legendEl.innerHTML = groupOrder.map((g, i) =>
@@ -71,6 +74,51 @@ window.PLACEHOLDER_GRAPH = {
     countEl.textContent = `${raw.nodes.length} nodes · ${raw.links.length} links` +
       (usingVault ? ` · ${raw.source || "vault"}` : " · sample data");
   }
+
+  // ── tag filter chips ──────────────────────────────────────────────────────
+  const filterEl = document.getElementById("graph-filters");
+  const hiddenTags = new Set();   // tags currently filtered OUT
+
+  function renderFilters() {
+    if (!filterEl || allTags.length === 0) return;
+    filterEl.innerHTML = "<span style='opacity:.6;font-size:.85em'>hide tag:</span> " +
+      allTags.map(t => {
+        const active = hiddenTags.has(t);
+        return `<button class="tag-chip${active ? " active" : ""}" data-tag="${t}">${t}</button>`;
+      }).join("");
+    filterEl.querySelectorAll(".tag-chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const tag = btn.dataset.tag;
+        if (hiddenTags.has(tag)) hiddenTags.delete(tag);
+        else hiddenTags.add(tag);
+        applyFilter();
+        renderFilters();
+      });
+    });
+  }
+
+  function applyFilter() {
+    const visibleIds = new Set();
+    nodes.forEach((n, i) => {
+      const nodeTags = n.tags || [];
+      const hide = nodeTags.some(t => hiddenTags.has(t));
+      nodeGroups[i].style.display = hide ? "none" : "";
+      if (!hide) visibleIds.add(n.id);
+    });
+    linkEls.forEach((line, i) => {
+      const s = links[i].source, t = links[i].target;
+      line.style.display = (visibleIds.has(s.id) && visibleIds.has(t.id)) ? "" : "none";
+    });
+    // update count
+    if (countEl) {
+      const vis = visibleIds.size;
+      const suffix = hiddenTags.size > 0 ? ` (${vis} shown)` : "";
+      countEl.textContent = `${raw.nodes.length} nodes · ${raw.links.length} links` +
+        (usingVault ? ` · ${raw.source || "vault"}` : " · sample data") + suffix;
+    }
+  }
+
+  renderFilters();
 
   // ── build node objects ────────────────────────────────────────────────────
   // For vault data: generate a URL from the .md path so clicking opens the note.
