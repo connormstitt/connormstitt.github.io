@@ -1,5 +1,5 @@
 window.VAULT_GRAPH = {
- "generated": "2026-07-21T15:17",
+ "generated": "2026-07-21T15:34",
  "source": "obsidian-console",
  "nodes": [
   {
