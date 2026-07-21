@@ -76,7 +76,6 @@ function applyRepulsion(n, cell, theta, strength) {
   const wrap     = document.getElementById("graph-wrap");
   const svg      = document.getElementById("graph-svg");
   const tooltip  = document.getElementById("graph-tooltip");
-  const legendEl = document.getElementById("graph-legend");
   const filterEl = document.getElementById("graph-filters");
   const countEl  = document.getElementById("node-count");
   if (!wrap || !svg) return;
@@ -100,13 +99,6 @@ function applyRepulsion(n, cell, theta, strength) {
 
   // ── all tags ──────────────────────────────────────────────────────────────
   const allTags = [...new Set(raw.nodes.flatMap(n => n.tags || []))].sort();
-
-  // ── legend ────────────────────────────────────────────────────────────────
-  if (legendEl) {
-    legendEl.innerHTML = groupOrder.map((g,i) =>
-      `<span><span class="dot" style="background:${PALETTE[i%PALETTE.length]}"></span>${g}</span>`
-    ).join("");
-  }
 
   const updateCount = (visN) => {
     if (!countEl) return;
@@ -195,10 +187,13 @@ function applyRepulsion(n, cell, theta, strength) {
   // ── tag filter ────────────────────────────────────────────────────────────
   const hiddenTags = new Set();
 
+  // ── filter: tags (if present) + groups ───────────────────────────────────
+  const hiddenGroups = new Set();
+
   function applyFilter() {
     const visibleIds = new Set();
     nodes.forEach((n,i)=>{
-      const hide = n.tags.some(t=>hiddenTags.has(t));
+      const hide = n.tags.some(t=>hiddenTags.has(t)) || hiddenGroups.has(n.group);
       nodeGroups[i].style.display = hide?"none":"";
       if (!hide) visibleIds.add(n.id);
     });
@@ -210,14 +205,21 @@ function applyRepulsion(n, cell, theta, strength) {
   }
 
   function renderFilters() {
-    if (!filterEl || allTags.length===0) return;
+    if (!filterEl) return;
+    const tagChips = allTags.map(t =>
+      `<button class="tag-chip${hiddenTags.has(t)?" active":""}" data-kind="tag" data-val="${t}">${t}</button>`
+    ).join("");
+    const groupChips = groupOrder.map(g =>
+      `<button class="tag-chip${hiddenGroups.has(g)?" active":""}" data-kind="group" data-val="${g}">${g}</button>`
+    ).join("");
+    const sep = allTags.length && groupChips ? `<span class="chip-sep">|</span>` : "";
     filterEl.innerHTML =
-      "<span style='opacity:.6;font-size:.85em;margin-right:4px'>hide:</span>" +
-      allTags.map(t=>`<button class="tag-chip${hiddenTags.has(t)?" active":""}" data-tag="${t}">${t}</button>`).join("");
+      `<span class="chip-label">hide:</span>${tagChips}${sep}${groupChips}`;
     filterEl.querySelectorAll(".tag-chip").forEach(btn=>{
       btn.addEventListener("click",()=>{
-        const tag=btn.dataset.tag;
-        hiddenTags.has(tag)?hiddenTags.delete(tag):hiddenTags.add(tag);
+        const {kind,val} = btn.dataset;
+        const set = kind==="tag" ? hiddenTags : hiddenGroups;
+        set.has(val) ? set.delete(val) : set.add(val);
         applyFilter(); renderFilters();
       });
     });
