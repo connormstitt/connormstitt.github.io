@@ -157,7 +157,43 @@ body {
     touch-action: none;
 }
 
-.graph-tooltip {
+.graph-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Roboto Condensed', sans-serif;
+    font-size: clamp(0.58rem, 1.4vh, 0.8rem);
+    min-height: 0;
+    flex-shrink: 0;
+}
+
+.graph-filters:empty {
+    display: none;
+}
+
+.tag-chip {
+    background: none;
+    border: 1px solid var(--psu-blue);
+    color: var(--psu-blue);
+    padding: 2px 8px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.55rem, 1.3vh, 0.75rem);
+    transition: background 0.15s, color 0.15s;
+}
+
+.tag-chip:hover {
+    background: rgba(30,64,124,0.1);
+}
+
+.tag-chip.active {
+    background: var(--psu-blue);
+    color: white;
+}
     position: absolute;
     pointer-events: none;
     background: var(--psu-navy);
