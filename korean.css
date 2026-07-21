@@ -215,3 +215,10 @@ body {
         display: none;
     }
 }
+
+.placeholder-notice code {
+    font-family: 'Roboto Condensed', monospace;
+    background-color: #eceff5;
+    padding: 0 0.3em;
+    color: var(--psu-navy);
+}

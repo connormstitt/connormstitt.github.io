@@ -27,35 +27,24 @@
   <main class="main">
 
     <div class="placeholder-notice">
-      <strong>Placeholder.</strong> Sample data standing in for the real vault. Drag the nodes around — the live version will sync from Obsidian.
+      <strong>Demo data.</strong> Currently showing a sample vault export. Drag nodes, scroll to zoom, drag the background to pan, click a note to open it. To go live: export the vocab vault with Webpage HTML Export, drop it in <code>vault/</code>, run <code>python3 tools/build-graph.py vault</code>.
     </div>
 
     <div class="graph-card">
       <div class="graph-toolbar">
-        <span>graph view &middot; local-graph.md</span>
+        <span>graph view &middot; vault export</span>
         <span id="node-count"></span>
       </div>
       <div id="graph-wrap">
         <svg id="graph-svg"></svg>
         <div id="graph-tooltip" class="graph-tooltip"></div>
       </div>
-      <div class="legend">
-        <span><span class="dot dot-topic"></span>Topic</span>
-        <span><span class="dot dot-vocab"></span>Vocabulary</span>
-        <span><span class="dot dot-grammar"></span>Grammar</span>
-      </div>
+      <div class="legend" id="graph-legend"></div>
     </div>
 
   </main>
 
+  <script src="korean-graph-data.js"></script>
   <script src="korean-graph.js" defer></script>
-  <script>
-    window.addEventListener("load", () => {
-      const el = document.getElementById("node-count");
-      if (el && window.graphData) {
-        el.textContent = graphData.nodes.length + " nodes · " + graphData.links.length + " links";
-      }
-    });
-  </script>
 </body>
 </html>

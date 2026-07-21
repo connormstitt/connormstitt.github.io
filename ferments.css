@@ -110,12 +110,14 @@ body {
 }
 
 .wordmark {
-    font-family: 'Permanent Marker', cursive;
-    color: var(--dark-red);
-    font-size: clamp(1.4rem, 5vh, 3rem);
-    line-height: 1;
     margin: 0;
-    letter-spacing: 0.02em;
+    line-height: 1;
+}
+
+.wordmark img {
+    height: clamp(22px, 5vh, 50px);
+    width: auto;
+    display: block;
 }
 
 .korean-sub {
@@ -142,14 +144,144 @@ body {
 }
 
 /* =======================================
-   Three-card grid fills remaining height
+   In-page tabs: About / Batches / Merch
 ======================================= */
-.grid {
+.ftabs {
+    display: flex;
+    justify-content: center;
+    gap: clamp(6px, 1vw, 14px);
+    flex-shrink: 0;
+}
+
+.ftab {
+    font-family: 'Space Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: clamp(0.58rem, 1.5vh, 0.85rem);
+    background: none;
+    border: 2px solid var(--pine);
+    color: var(--pine);
+    padding: 0.45em 1.4em;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ftab:hover {
+    background-color: rgba(11, 61, 15, 0.1);
+}
+
+.ftab.active {
+    background-color: var(--pine);
+    color: var(--parchment);
+}
+
+/* =======================================
+   Panels fill remaining height
+======================================= */
+.panels {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.panel {
+    display: none;
+    flex: 1;
+    min-height: 0;
+}
+
+.panel.active {
+    display: grid;
+    gap: clamp(8px, 1.4vw, 18px);
+}
+
+.panel-about.active {
+    grid-template-columns: 1.15fr 1fr;
+}
+
+.panel-batches.active {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(6px, 1vh, 12px);
+}
+
+.batch-list-head {
+    flex-shrink: 0;
+}
+
+.batch-list {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 1.05fr 1fr 1.1fr;
+    grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
     gap: clamp(8px, 1.4vw, 18px);
+    overflow-y: auto; /* safety valve if the archive outgrows one screen */
+}
+
+.batch-notes {
+    font-style: italic;
+    font-size: clamp(0.6rem, 1.6vh, 0.92rem);
+    margin-top: 0.5em;
+}
+
+.no-batches {
+    font-family: 'Space Mono', monospace;
+    color: var(--pine);
+    font-size: clamp(0.6rem, 1.6vh, 0.9rem);
+}
+
+.panel-merch.active {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.merch-photo {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0.4em 0;
+}
+
+.merch-photo img {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.merch-desc {
+    flex-shrink: 0;
+    font-size: clamp(0.6rem, 1.6vh, 0.92rem);
+    margin: 0;
+}
+
+/* Merch placeholders */
+.merch-photo.placeholder {
+    position: relative;
+    border: 2px dashed rgba(25, 21, 16, 0.35);
+}
+
+.merch-photo.placeholder .ghost {
+    max-height: 70%;
+    max-width: 70%;
+    opacity: 0.16;
+    filter: grayscale(35%);
+}
+
+.coming-soon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(-7deg);
+    font-family: 'Space Mono', monospace;
+    font-weight: bold;
+    letter-spacing: 0.14em;
+    font-size: clamp(0.62rem, 1.9vh, 1rem);
+    color: var(--deep-red);
+    border: 3px solid var(--deep-red);
+    padding: 0.3em 0.8em;
+    background-color: rgba(249, 239, 220, 0.85);
+    white-space: nowrap;
 }
 
 .card {
@@ -287,9 +419,25 @@ body {
         flex: none;
     }
 
-    .grid {
+    .panels {
+        flex: none;
+    }
+
+    .panel.active,
+    .panel-about.active,
+    .panel-merch.active {
         grid-template-columns: 1fr;
         flex: none;
+    }
+
+    .batch-list {
+        grid-template-columns: 1fr;
+        overflow: visible;
+        flex: none;
+    }
+
+    .merch-photo img {
+        max-height: 45vh;
     }
 
     .hero {

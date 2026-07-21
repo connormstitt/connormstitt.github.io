@@ -28,53 +28,87 @@
     <header class="hero">
       <img class="badge" src="ferments-assets/badge-circle-web.png" alt="Stitt Ferments monkey badge logo">
       <div>
-        <h1 class="wordmark">STITT FERMENTS</h1>
+        <h1 class="wordmark"><img src="ferments-assets/wordmark.png" alt="STITT FERMENTS"></h1>
         <div class="korean-sub">배추 김치 &middot; <span class="tagline">"Made by monkeys, for monkeys."</span></div>
         <div class="subtaglines">SMALL BATCH<span>&middot;</span>BIG FLAVOR<span>&middot;</span>ZERO SHORTCUTS</div>
       </div>
     </header>
 
-    <main class="grid">
+    <nav class="ftabs">
+      <button class="ftab active" data-panel="panel-about">About</button>
+      <button class="ftab" data-panel="panel-batches">Batches</button>
+      <button class="ftab" data-panel="panel-merch">Merch</button>
+    </nav>
 
-      <section class="card">
-        <span class="eyebrow">01 — About</span>
-        <h3>A counter-top habit that got out of hand</h3>
-        <p>Stitt Ferments started as an excuse to keep a jar of cabbage on the counter and see what happened. It's grown into a small-batch kimchi habit: no vinegar, no shortcuts, no starter culture — just salt, patience, and whatever the ferment decides to do.</p>
-        <p>Every batch is logged, tasted, and (usually) approved before it leaves the kitchen. Some batches are better than others. That's fermentation.</p>
-      </section>
+    <main class="panels">
 
-      <section class="card">
-        <span class="eyebrow">02 — Current Batch</span>
-        <p class="batch-name">Traditional Napa Kimchi</p>
-        <p class="batch-sub">배추 김치</p>
-        <p class="size">Small Batch &middot; 8 oz &middot; Naturally Fermented &middot; Keep Refrigerated</p>
-        <div class="ingredients">
-          <span class="kr">원재료 / Ingredients</span><br>
-          배추 (Napa cabbage) &middot; 무 (Korean radish)<br>
-          대파 (Green onion) &middot; 마늘 (Garlic)<br>
-          생강 (Ginger) &middot; 고춧가루 (Red pepper flakes)<br>
-          액젓 (Fish sauce) &middot; 새우젓 (Salted shrimp)<br>
-          찹쌀가루 (Rice flour) &middot; 천일염 (Sea salt)<br>
-          설탕 (Sugar)
-        </div>
-      </section>
+      <!-- ===== About ===== -->
+      <div id="panel-about" class="panel panel-about active">
 
-      <section class="card">
-        <span class="eyebrow">03 — Fermentation Log</span>
-        <div class="log-meta">
-          EXPERIMENTAL FERMENTATION DIVISION<br>
-          <span class="k">BATCH NO.</span> 001-A &nbsp;&middot;&nbsp; <span class="k">LOCATION</span> PA&ndash;SC
+        <section class="card">
+          <span class="eyebrow">01 — About</span>
+          <h3>A counter-top habit that got out of hand</h3>
+          <p>Stitt Ferments started as an excuse to keep a jar of cabbage on the counter and see what happened. It's grown into a small-batch kimchi habit: no vinegar, no shortcuts, no starter culture — just salt, patience, and whatever the ferment decides to do.</p>
+          <p>Every batch is logged, tasted, and (usually) approved before it leaves the kitchen. Some batches are better than others. That's fermentation.</p>
+        </section>
+
+        <section class="card">
+          <span class="eyebrow">02 — The Product</span>
+          <p class="batch-name">Traditional Napa Kimchi</p>
+          <p class="batch-sub">배추 김치</p>
+          <p class="size">Small Batch &middot; 8 oz &middot; Naturally Fermented &middot; Keep Refrigerated</p>
+          <div class="ingredients">
+            <span class="kr">원재료 / Ingredients</span><br>
+            배추 (Napa cabbage) &middot; 무 (Korean radish)<br>
+            대파 (Green onion) &middot; 마늘 (Garlic)<br>
+            생강 (Ginger) &middot; 고춧가루 (Red pepper flakes)<br>
+            액젓 (Fish sauce) &middot; 새우젓 (Salted shrimp)<br>
+            찹쌀가루 (Rice flour) &middot; 천일염 (Sea salt)<br>
+            설탕 (Sugar)
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ===== Batches (rendered from ferments-batches.js) ===== -->
+      <div id="panel-batches" class="panel panel-batches">
+        <div class="batch-list-head">
+          <span class="eyebrow">Experimental Fermentation Division — Batch Archive</span>
         </div>
-        <div class="log-fields">
-          <div class="row"><span>Started</span><span>YYYY.MM.DD</span></div>
-          <div class="row"><span>Packaged</span><span>YYYY.MM.DD</span></div>
-          <div class="row"><span>Status</span><span>Naturally Fermented</span></div>
-          <div class="row"><span>Storage</span><span>Keep Refrigerated</span></div>
-        </div>
-        <div class="log-stamp-wrap">
-          <img class="log-stamp" src="ferments-assets/qc-stamp-web.png" alt="Stitt Ferments QC approved stamp">
-        </div>
-      </section>
+        <div id="batch-list" class="batch-list"></div>
+      </div>
+
+      <!-- ===== Merch (showcase only — placeholders for now) ===== -->
+      <div id="panel-merch" class="panel panel-merch">
+
+        <section class="card merch-card">
+          <span class="eyebrow">Merch 001 — Division Tee</span>
+          <div class="merch-photo placeholder">
+            <img class="ghost" src="ferments-assets/badge-circle-web.png" alt="">
+            <span class="coming-soon">COMING SOON</span>
+          </div>
+          <p class="merch-desc">Quiet on the front, full monkey on the back. Photos when the monkeys finish sewing.</p>
+        </section>
+
+        <section class="card merch-card">
+          <span class="eyebrow">Merch 002 — TBD</span>
+          <div class="merch-photo placeholder">
+            <img class="ghost" src="ferments-assets/badge-circle-web.png" alt="">
+            <span class="coming-soon">준비중</span>
+          </div>
+          <p class="merch-desc">Slot reserved. The division is deliberating.</p>
+        </section>
+
+        <section class="card merch-card">
+          <span class="eyebrow">Merch 003 — TBD</span>
+          <div class="merch-photo placeholder">
+            <img class="ghost" src="ferments-assets/badge-circle-web.png" alt="">
+            <span class="coming-soon">COMING SOON</span>
+          </div>
+          <p class="merch-desc">Also reserved. No promises on the timeline.</p>
+        </section>
+
+      </div>
 
     </main>
 
@@ -85,6 +119,48 @@
   </div>
 
   <div class="pine-bar"></div>
+
+  <script src="ferments-batches.js"></script>
+  <script>
+    // --- In-page tabs (no reload, one URL) ---
+    const ftabs = document.querySelectorAll('.ftab');
+    const panels = document.querySelectorAll('.panel');
+    ftabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        ftabs.forEach(t => t.classList.remove('active'));
+        panels.forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.panel).classList.add('active');
+      });
+    });
+
+    // --- Batch archive: renders only entries flagged visible: true ---
+    (function renderBatches() {
+      const list = document.getElementById('batch-list');
+      const data = (typeof FERMENT_BATCHES !== 'undefined') ? FERMENT_BATCHES : [];
+      const shown = data.filter(b => b.visible === true);
+
+      if (shown.length === 0) {
+        list.innerHTML = '<p class="no-batches">No public batches yet. The monkeys are working on it.</p>';
+        return;
+      }
+
+      list.innerHTML = shown.map(b => `
+        <section class="card batch-card">
+          <span class="eyebrow">Batch ${b.batch} &nbsp;&middot;&nbsp; ${b.location || ''}</span>
+          <h3>${b.name}</h3>
+          <div class="log-fields">
+            <div class="row"><span>Started</span><span>${b.started}</span></div>
+            <div class="row"><span>Packaged</span><span>${b.packaged}</span></div>
+            <div class="row"><span>Status</span><span>${b.status}</span></div>
+            <div class="row"><span>Storage</span><span>${b.storage}</span></div>
+          </div>
+          ${b.notes ? `<p class="batch-notes">${b.notes}</p>` : ''}
+          ${b.qcApproved ? `<div class="log-stamp-wrap"><img class="log-stamp" src="ferments-assets/qc-stamp-web.png" alt="QC approved stamp"></div>` : ''}
+        </section>
+      `).join('');
+    })();
+  </script>
 
 </body>
 </html>
