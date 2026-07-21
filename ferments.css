@@ -1,0 +1,304 @@
+/* =======================================
+   Stitt Ferments — viewport-fit layout
+   Parchment / Pine / Dark Red / Deep Red / Ink
+======================================= */
+:root {
+    --parchment: #F4E0BC;
+    --pine: #0B3D0F;
+    --dark-red: #540000;
+    --deep-red: #CD071E;
+    --ink: #191510;
+    --card: #F9EFDC;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--parchment);
+    color: var(--ink);
+    font-family: 'Libre Baskerville', Georgia, serif;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+    font-size: clamp(0.64rem, 1.7vh, 1rem);
+}
+
+@supports (height: 100dvh) {
+    body {
+        height: 100dvh;
+    }
+}
+
+.pine-bar {
+    background-color: var(--pine);
+    height: clamp(8px, 1.6vh, 14px);
+    flex-shrink: 0;
+}
+
+/* =======================================
+   Page frame
+======================================= */
+.page {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: clamp(8px, 1.4vh, 18px) clamp(14px, 2vw, 28px);
+    gap: clamp(8px, 1.4vh, 16px);
+}
+
+/* =======================================
+   Top bar: back button + phone
+======================================= */
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.58rem, 1.4vh, 0.82rem);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+}
+
+.back-btn {
+    color: var(--parchment);
+    background-color: var(--pine);
+    padding: 0.45em 0.9em;
+    text-decoration: none;
+    border: 2px solid var(--pine);
+}
+
+.back-btn:hover {
+    background-color: var(--dark-red);
+    border-color: var(--dark-red);
+}
+
+.topbar .phone {
+    color: var(--pine);
+}
+
+/* =======================================
+   Hero — badge + wordmark row
+======================================= */
+.hero {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 2vw, 24px);
+    flex-shrink: 0;
+    text-align: left;
+}
+
+.hero img.badge {
+    height: clamp(56px, 11vh, 110px);
+    width: auto;
+    border-radius: 50%;
+}
+
+.wordmark {
+    font-family: 'Permanent Marker', cursive;
+    color: var(--dark-red);
+    font-size: clamp(1.4rem, 5vh, 3rem);
+    line-height: 1;
+    margin: 0;
+    letter-spacing: 0.02em;
+}
+
+.korean-sub {
+    font-family: 'Gaegu', cursive;
+    font-size: clamp(0.9rem, 2.6vh, 1.5rem);
+}
+
+.tagline {
+    font-style: italic;
+    margin: 0.15em 0 0 0;
+    font-size: clamp(0.72rem, 2vh, 1.1rem);
+}
+
+.subtaglines {
+    font-family: 'Space Mono', monospace;
+    color: var(--pine);
+    font-size: clamp(0.52rem, 1.3vh, 0.78rem);
+    letter-spacing: 0.02em;
+    margin-top: 0.3em;
+}
+
+.subtaglines span {
+    margin: 0 6px;
+}
+
+/* =======================================
+   Three-card grid fills remaining height
+======================================= */
+.grid {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 1.1fr;
+    gap: clamp(8px, 1.4vw, 18px);
+}
+
+.card {
+    border: 2px solid var(--ink);
+    background-color: var(--card);
+    padding: clamp(8px, 1.6vh, 18px) clamp(10px, 1.4vw, 18px);
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.52rem, 1.25vh, 0.72rem);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--deep-red);
+    margin-bottom: 0.4em;
+    display: block;
+    flex-shrink: 0;
+}
+
+.card h3 {
+    color: var(--dark-red);
+    font-size: clamp(0.82rem, 2.2vh, 1.2rem);
+    margin: 0 0 0.5em 0;
+    flex-shrink: 0;
+}
+
+.card p {
+    margin: 0 0 0.7em 0;
+}
+
+/* Label card */
+.batch-name {
+    font-family: 'Permanent Marker', cursive;
+    color: var(--dark-red);
+    font-size: clamp(0.9rem, 2.4vh, 1.4rem);
+    margin: 0 0 0.15em 0;
+}
+
+.batch-sub {
+    font-family: 'Gaegu', cursive;
+    font-size: clamp(0.78rem, 2vh, 1.1rem);
+    margin: 0 0 0.5em 0;
+}
+
+.size {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.52rem, 1.35vh, 0.8rem);
+    color: var(--pine);
+}
+
+.ingredients {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.52rem, 1.35vh, 0.78rem);
+    line-height: 1.55;
+    margin-top: 0.5em;
+}
+
+.ingredients .kr {
+    color: var(--dark-red);
+    font-weight: bold;
+}
+
+/* Fermentation log card */
+.log-meta {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.52rem, 1.35vh, 0.8rem);
+    margin-bottom: 0.6em;
+}
+
+.log-meta .k {
+    color: var(--pine);
+}
+
+.log-fields {
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.52rem, 1.35vh, 0.8rem);
+}
+
+.log-fields .row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px dotted rgba(25, 21, 16, 0.4);
+    padding: 0.35em 0;
+}
+
+.log-stamp-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-end;
+    padding-top: 0.5em;
+}
+
+.log-stamp {
+    max-height: clamp(48px, 12vh, 120px);
+    width: auto;
+    opacity: 0.92;
+}
+
+/* =======================================
+   Contact strip
+======================================= */
+.contact-strip {
+    background-color: var(--pine);
+    color: var(--parchment);
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: clamp(0.56rem, 1.5vh, 0.85rem);
+    padding: clamp(6px, 1.2vh, 12px);
+    flex-shrink: 0;
+}
+
+.contact-strip .em {
+    font-family: 'Libre Baskerville', serif;
+    font-style: italic;
+}
+
+/* =======================================
+   Small screens — stack cards, allow scrolling
+======================================= */
+@media screen and (max-width: 820px) {
+    body {
+        overflow-y: auto;
+        height: auto;
+        min-height: 100vh;
+        font-size: 0.9rem;
+    }
+
+    .page {
+        flex: none;
+    }
+
+    .grid {
+        grid-template-columns: 1fr;
+        flex: none;
+    }
+
+    .hero {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .topbar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+}
