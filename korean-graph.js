@@ -136,8 +136,9 @@ function applyRepulsion(n, cell, theta, strength) {
   const toWorld = (px,py) => ({x:vb.x+(px/clientW)*vb.w, y:vb.y+(py/clientH)*vb.h});
 
   function autoFit() {
+    const src = activeNodes.length ? activeNodes : nodes;
     let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
-    nodes.forEach(n=>{ x0=Math.min(x0,n.x);x1=Math.max(x1,n.x);y0=Math.min(y0,n.y);y1=Math.max(y1,n.y); });
+    src.forEach(n=>{ x0=Math.min(x0,n.x);x1=Math.max(x1,n.x);y0=Math.min(y0,n.y);y1=Math.max(y1,n.y); });
     const pad=50, aspect=clientW/clientH;
     x0-=pad;y0-=pad;x1+=pad;y1+=pad;
     let w=x1-x0,h=y1-y0;
@@ -190,17 +191,29 @@ function applyRepulsion(n, cell, theta, strength) {
   // ── filter: tags (if present) + groups ───────────────────────────────────
   const hiddenGroups = new Set();
 
+  // activeNodes / activeLinks are what the physics actually simulates
+  let activeNodes = nodes.slice();
+  let activeLinks = links.slice();
+
   function applyFilter() {
     const visibleIds = new Set();
     nodes.forEach((n,i)=>{
       const hide = n.tags.some(t=>hiddenTags.has(t)) || hiddenGroups.has(n.group);
-      nodeGroups[i].style.display = hide?"none":"";
+      nodeGroups[i].style.display = hide ? "none" : "";
       if (!hide) visibleIds.add(n.id);
     });
     linkEls.forEach((line,i)=>{
       const s=links[i].source, t=links[i].target;
-      line.style.display=(visibleIds.has(s.id)&&visibleIds.has(t.id))?"":"none";
+      const show = visibleIds.has(s.id) && visibleIds.has(t.id);
+      line.style.display = show ? "" : "none";
     });
+
+    // Re-scope simulation to visible nodes/links only, then re-run physics
+    activeNodes = nodes.filter(n => visibleIds.has(n.id));
+    activeLinks = links.filter(l => visibleIds.has(l.source.id) && visibleIds.has(l.target.id));
+    userMoved = false; // re-fit the camera to visible nodes
+    kick(1);
+
     updateCount(visibleIds.size);
   }
 
@@ -231,15 +244,15 @@ function applyRepulsion(n, cell, theta, strength) {
   const REPEL=3200, THETA=0.8, LINK_LEN=60, LINK_K=0.03, CENTER_K=0.0015;
 
   function step() {
-    // Barnes-Hut repulsion
-    const tree = buildTree(nodes);
-    nodes.forEach(n=>{
+    // Barnes-Hut repulsion — only active nodes
+    const tree = buildTree(activeNodes);
+    activeNodes.forEach(n=>{
       if(n===draggingNode)return;
       applyRepulsion(n, tree, THETA, REPEL*alpha);
     });
 
-    // Spring attraction
-    links.forEach(l=>{
+    // Spring attraction — only active links
+    activeLinks.forEach(l=>{
       const dx=l.target.x-l.source.x, dy=l.target.y-l.source.y;
       const d=Math.sqrt(dx*dx+dy*dy)||0.01;
       const f=(d-LINK_LEN)*LINK_K*alpha;
@@ -248,13 +261,12 @@ function applyRepulsion(n, cell, theta, strength) {
       if(l.target!==draggingNode){l.target.vx-=fx;l.target.vy-=fy;}
     });
 
-    // Centering + integrate + dampen
+    // Centering + integrate + dampen — only active nodes
     const cx=clientW/2, cy=clientH/2;
-    nodes.forEach(n=>{
+    activeNodes.forEach(n=>{
       if(n===draggingNode)return;
       n.vx+=(cx-n.x)*CENTER_K*alpha;
       n.vy+=(cy-n.y)*CENTER_K*alpha;
-      // tiny random nudge to break grid symmetry
       if(alpha>0.3){n.vx+=(Math.random()-0.5)*0.4;n.vy+=(Math.random()-0.5)*0.4;}
       n.vx*=0.78; n.vy*=0.78;
       n.x+=n.vx; n.y+=n.vy;
