@@ -1,9 +1,10 @@
-// Obsidian-style graph view built on d3-force — same physics family as
-// Obsidian's own graph, with an Obsidian-style settings panel:
-//   Filters:  tag chips (#synthetic_node hidden by default) · orphans toggle
-//   Display:  node size · link thickness · text fade threshold
-//   Forces:   center force · repel force · link force · link distance
-// Data: window.VAULT_GRAPH (from the Obsidian console snippet).
+// Obsidian-style graph view on d3-force, with Obsidian's settings panel:
+//   Filters:  search query (supports  text, #tag, -exclusions ) · Tags ·
+//             Attachments · Existing files only · Orphans
+//   Groups:   color rules by query
+//   Display:  Arrows · Text fade threshold · Node size · Link thickness · Animate
+//   Forces:   Center force · Repel force · Link force · Link distance
+// Tag chips below the toolbar use INCLUDE semantics; #synthetic_node starts off.
 
 window.PLACEHOLDER_GRAPH = {
   nodes: [
@@ -36,17 +37,24 @@ window.PLACEHOLDER_GRAPH = {
   let clientW = wrap.clientWidth;
   let clientH = wrap.clientHeight;
 
-  // ── settings (Obsidian-style, live-adjustable) ────────────────────────────
-  const S = {
-    centerForce: 0.4,     // 0–1
-    repelForce: 10,       // 0–20
-    linkForce: 1,         // 0–1
-    linkDistance: 30,     // 0–300
-    nodeSize: 1,          // 0.4–3
-    linkThickness: 1,     // 0.3–4
-    textFade: 0.7,        // labels appear when zoom scale > this
+  // ── settings & defaults ───────────────────────────────────────────────────
+  const DEFAULTS = {
+    query: "",
+    showTagNodes: false,
+    showAttachments: false,   // no attachments in this data; kept for parity
+    existingOnly: true,
     showOrphans: true,
+    showArrows: false,
+    textFade: 0.7,
+    nodeSize: 1,
+    linkThickness: 1,
+    centerForce: 0.4,
+    repelForce: 15,
+    linkForce: 1,
+    linkDistance: 60,
   };
+  const S = { ...DEFAULTS };
+  let groups = [];   // [{query, color}]
 
   // ── palette ───────────────────────────────────────────────────────────────
   const PALETTE = [
@@ -54,9 +62,11 @@ window.PLACEHOLDER_GRAPH = {
     "#c46a4f","#8a6d3b","#4d7ea8","#5a9e6f","#a05070",
     "#4a7090","#9a7030","#607890","#706090","#508060",
   ];
+  const TAGNODE_COLOR = "#98a3b8";
   const groupOrder = [];
   raw.nodes.forEach(n => { if (!groupOrder.includes(n.group)) groupOrder.push(n.group); });
-  const colorOf = n => PALETTE[groupOrder.indexOf(n.group) % PALETTE.length] || "#888";
+  const baseColor = n => n.isTag ? TAGNODE_COLOR :
+    (PALETTE[groupOrder.indexOf(n.group) % PALETTE.length] || "#888");
 
   const allTags = [...new Set(raw.nodes.flatMap(n => n.tags || []))].sort();
 
@@ -67,8 +77,8 @@ window.PLACEHOLDER_GRAPH = {
     countEl.textContent = visN < raw.nodes.length ? base + ` (${visN} shown)` : base;
   };
 
-  // ── nodes / links ─────────────────────────────────────────────────────────
-  const nodes = raw.nodes.map(n => ({
+  // ── node & link objects (notes + tag nodes) ───────────────────────────────
+  const noteNodes = raw.nodes.map(n => ({
     ...n,
     tags: n.tags || [],
     url: usingVault && n.id.endsWith(".md") ? "vault/"+n.id : (n.url || null),
@@ -76,10 +86,23 @@ window.PLACEHOLDER_GRAPH = {
     x: clientW/2 + (Math.random()-0.5)*clientW*0.5,
     y: clientH/2 + (Math.random()-0.5)*clientH*0.5,
   }));
+  const tagNodes = allTags.map(t => ({
+    id: "tag:"+t, label: t, group: "(tag)", tags: [], isTag: true, url: null,
+    baseR: 6,
+    x: clientW/2 + (Math.random()-0.5)*clientW*0.4,
+    y: clientH/2 + (Math.random()-0.5)*clientH*0.4,
+  }));
+  const nodes = [...noteNodes, ...tagNodes];
   const nodeById = Object.fromEntries(nodes.map(n=>[n.id,n]));
-  const links = (raw.links||[])
+
+  const noteLinks = (raw.links||[])
     .filter(l => nodeById[l.source] && nodeById[l.target])
-    .map(l => ({ source: nodeById[l.source], target: nodeById[l.target] }));
+    .map(l => ({ source: nodeById[l.source], target: nodeById[l.target], isTagLink:false }));
+  const tagLinks = [];
+  noteNodes.forEach(n => n.tags.forEach(t => {
+    tagLinks.push({ source: n, target: nodeById["tag:"+t], isTagLink:true });
+  }));
+  const links = [...noteLinks, ...tagLinks];
 
   // ── camera ────────────────────────────────────────────────────────────────
   const vb = {x:0, y:0, w:clientW, h:clientH};
@@ -88,8 +111,8 @@ window.PLACEHOLDER_GRAPH = {
   const applyVB = () => { svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); syncLabels(); };
   const toWorld = (px,py) => ({x: vb.x + (px/clientW)*vb.w, y: vb.y + (py/clientH)*vb.h});
 
-  let activeNodes = nodes.slice();
-  let activeLinks = links.slice();
+  let activeNodes = noteNodes.slice();
+  let activeLinks = noteLinks.slice();
 
   function fitTarget() {
     const src = activeNodes.length ? activeNodes : nodes;
@@ -114,7 +137,13 @@ window.PLACEHOLDER_GRAPH = {
   }
   function fitNow(){ const t=fitTarget(); vb.x=t.x;vb.y=t.y;vb.w=t.w;vb.h=t.h; applyVB(); }
 
-  // ── SVG elements ──────────────────────────────────────────────────────────
+  // ── SVG: arrow marker def + elements ──────────────────────────────────────
+  const defs = document.createElementNS(svgNS,"defs");
+  defs.innerHTML = `<marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4"
+      markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L8,4 L0,8 z" fill="rgba(30,64,124,0.45)"/></marker>`;
+  svg.appendChild(defs);
+
   const linkEls = links.map(() => {
     const line = document.createElementNS(svgNS,"line");
     line.setAttribute("stroke","rgba(30,64,124,0.2)");
@@ -129,15 +158,16 @@ window.PLACEHOLDER_GRAPH = {
 
     const circle = document.createElementNS(svgNS,"circle");
     circle.setAttribute("r", n.baseR * S.nodeSize);
-    circle.setAttribute("fill", colorOf(n));
+    circle.setAttribute("fill", baseColor(n));
     circle.setAttribute("stroke", "#fff");
     circle.setAttribute("stroke-width", "1.2");
+    if (n.isTag) circle.setAttribute("opacity","0.75");
     g.appendChild(circle);
 
     const text = document.createElementNS(svgNS,"text");
     text.setAttribute("text-anchor","middle");
     text.setAttribute("y", n.baseR*S.nodeSize + 12);
-    text.setAttribute("fill","#33415c");
+    text.setAttribute("fill", n.isTag ? "#7a8499" : "#33415c");
     text.setAttribute("font-size","10");
     text.setAttribute("font-family","Noto Sans KR, sans-serif");
     text.style.pointerEvents = "none";
@@ -149,7 +179,6 @@ window.PLACEHOLDER_GRAPH = {
   });
 
   function syncLabels() {
-    // Obsidian-style text fade: labels appear as you zoom past the threshold
     const s = scale();
     const op = Math.max(0, Math.min(1, (s - S.textFade) * 4));
     nodeEls.forEach(el => el.text.style.opacity = op);
@@ -164,17 +193,47 @@ window.PLACEHOLDER_GRAPH = {
   function syncLinkThickness() {
     linkEls.forEach(l => l.setAttribute("stroke-width", S.linkThickness));
   }
+  function syncArrows() {
+    linkEls.forEach(l => {
+      if (S.showArrows) l.setAttribute("marker-end","url(#arrow)");
+      else l.removeAttribute("marker-end");
+    });
+  }
+  function recolor() {
+    nodes.forEach((n,i)=>{
+      let c = baseColor(n);
+      groups.forEach(gr => { if (gr.query && matchQuery(n, gr.query)) c = gr.color; });
+      nodeEls[i].circle.setAttribute("fill", c);
+    });
+  }
 
-  // ── d3 force simulation — the Obsidian look ───────────────────────────────
-  // degree-scaled link strength (leaves hug hubs), bounded repulsion
-  // (clusters don't push each other apart evenly), light collision.
+  // ── query matcher: "text #tag -excluded -#tag" ────────────────────────────
+  function matchQuery(n, q) {
+    const tokens = q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return true;
+    const hay = (n.label + " " + n.id).toLowerCase();
+    const ntags = n.tags.map(t=>t.toLowerCase());
+    for (const tok of tokens) {
+      const neg = tok.startsWith("-");
+      const body = neg ? tok.slice(1) : tok;
+      if (!body) continue;
+      let hit;
+      if (body.startsWith("#")) hit = ntags.some(t => t.includes(body));
+      else hit = hay.includes(body) || ntags.some(t => t.includes(body));
+      if (neg && hit) return false;
+      if (!neg && !hit) return false;
+    }
+    return true;
+  }
+
+  // ── d3 force simulation ───────────────────────────────────────────────────
   function linkStrength(l) {
     const cnt = id => activeLinks.reduce((a,x)=>a+(x.source.id===id||x.target.id===id?1:0),0);
     return S.linkForce * Math.min(1, 1/Math.min(cnt(l.source.id), cnt(l.target.id)));
   }
 
-  const sim = d3.forceSimulation(nodes)
-    .force("link", d3.forceLink(links).distance(() => S.linkDistance))
+  const sim = d3.forceSimulation(activeNodes)
+    .force("link", d3.forceLink(activeLinks).distance(() => S.linkDistance))
     .force("charge", d3.forceManyBody().distanceMax(500))
     .force("x", d3.forceX(clientW/2))
     .force("y", d3.forceY(clientH/2))
@@ -200,69 +259,82 @@ window.PLACEHOLDER_GRAPH = {
     sim.force("x").strength(S.centerForce * 0.12);
     sim.force("y").strength(S.centerForce * 0.12);
   }
-  applyForceSettings();
-
   function reheat(a=1){ sim.alpha(a).restart(); }
 
-  // ── filtering: tags (#synthetic_node default-hidden) + orphans ────────────
-  const hiddenTags = new Set();
-  if (allTags.includes("#synthetic_node")) hiddenTags.add("#synthetic_node");
+  // ── include-style tag chips (#synthetic_node off by default) ──────────────
+  const includedTags = new Set(allTags.filter(t => t !== "#synthetic_node"));
 
+  // ── the master filter pipeline ────────────────────────────────────────────
   function applyFilter() {
-    const tagVisible = new Set();
-    nodes.forEach(n => {
-      if (!n.tags.some(t=>hiddenTags.has(t))) tagVisible.add(n.id);
-    });
-    const linkedIds = new Set();
-    links.forEach(l => {
-      if (tagVisible.has(l.source.id) && tagVisible.has(l.target.id)) {
-        linkedIds.add(l.source.id); linkedIds.add(l.target.id);
+    // 1. existing files only
+    let vis = noteNodes.filter(n => !(S.existingOnly && n.missing));
+    // 2. include-tags: untagged always pass; tagged need >=1 included tag
+    vis = vis.filter(n => n.tags.length === 0 || n.tags.some(t => includedTags.has(t)));
+    // 3. search query
+    if (S.query.trim()) vis = vis.filter(n => matchQuery(n, S.query));
+    let visIds = new Set(vis.map(n=>n.id));
+    // 4. orphans (linked via note links, or via tag nodes when shown)
+    if (!S.showOrphans) {
+      const linked = new Set();
+      noteLinks.forEach(l => {
+        if (visIds.has(l.source.id) && visIds.has(l.target.id)) {
+          linked.add(l.source.id); linked.add(l.target.id);
+        }
+      });
+      if (S.showTagNodes) {
+        tagLinks.forEach(l => { if (visIds.has(l.source.id)) linked.add(l.source.id); });
       }
-    });
-    const visibleIds = new Set(
-      [...tagVisible].filter(id => S.showOrphans || linkedIds.has(id))
-    );
+      visIds = new Set([...visIds].filter(id => linked.has(id)));
+    }
+    // 5. tag nodes if enabled: tags present on visible notes
+    const visTagIds = new Set();
+    if (S.showTagNodes) {
+      noteNodes.forEach(n => {
+        if (visIds.has(n.id)) n.tags.forEach(t => visTagIds.add("tag:"+t));
+      });
+    }
 
-    nodes.forEach((n,i)=> nodeEls[i].g.style.display = visibleIds.has(n.id) ? "" : "none");
+    const allVis = new Set([...visIds, ...visTagIds]);
+    nodes.forEach((n,i)=> nodeEls[i].g.style.display = allVis.has(n.id) ? "" : "none");
     linkEls.forEach((line,i)=>{
       const l = links[i];
-      line.style.display = (visibleIds.has(l.source.id)&&visibleIds.has(l.target.id)) ? "" : "none";
+      const show = l.isTagLink
+        ? (S.showTagNodes && visIds.has(l.source.id) && visTagIds.has(l.target.id))
+        : (allVis.has(l.source.id) && allVis.has(l.target.id));
+      line.style.display = show ? "" : "none";
     });
 
-    activeNodes = nodes.filter(n => visibleIds.has(n.id));
-    activeLinks = links.filter(l => visibleIds.has(l.source.id) && visibleIds.has(l.target.id));
+    activeNodes = nodes.filter(n => allVis.has(n.id));
+    activeLinks = links.filter((l,i) => linkEls[i].style.display !== "none");
 
-    // re-scope the simulation and re-estimate the layout
     sim.nodes(activeNodes);
     sim.force("link").links(activeLinks);
     applyForceSettings();
+    recolor();
+    syncArrows();
     userMoved = false;
     reheat(1);
-    updateCount(visibleIds.size);
+    updateCount(visIds.size);
   }
 
-  function renderFilters() {
+  function renderChips() {
     if (!filterEl) return;
-    if (allTags.length === 0) {
-      filterEl.innerHTML = usingVault
-        ? `<span class="chip-label">no tags in data — re-run the console snippet (tag version)</span>` : "";
-      return;
-    }
+    if (allTags.length === 0) { filterEl.innerHTML = ""; return; }
     filterEl.innerHTML =
-      `<span class="chip-label">hide:</span>` +
+      `<span class="chip-label">show:</span>` +
       allTags.map(t =>
-        `<button class="tag-chip${hiddenTags.has(t)?" active":""}" data-val="${t}">${t}</button>`
+        `<button class="tag-chip${includedTags.has(t)?" active":""}" data-val="${t}">${t}</button>`
       ).join("");
     filterEl.querySelectorAll(".tag-chip").forEach(btn=>{
       btn.addEventListener("click",()=>{
         const v = btn.dataset.val;
-        hiddenTags.has(v) ? hiddenTags.delete(v) : hiddenTags.add(v);
-        applyFilter(); renderFilters();
+        includedTags.has(v) ? includedTags.delete(v) : includedTags.add(v);
+        applyFilter(); renderChips();
       });
     });
   }
 
-  // ── settings panel (gear) ─────────────────────────────────────────────────
+  // ── settings panel (Obsidian-style) ───────────────────────────────────────
   const gear = document.createElement("button");
   gear.className = "graph-gear";
   gear.textContent = "⚙";
@@ -272,17 +344,50 @@ window.PLACEHOLDER_GRAPH = {
   panel.className = "graph-settings";
   panel.style.display = "none";
   panel.innerHTML = `
-    <div class="gs-section">Filters</div>
-    <label class="gs-row gs-check"><input type="checkbox" id="gs-orphans" checked> Orphans</label>
-    <div class="gs-section">Display</div>
-    <label class="gs-row">Node size<input type="range" id="gs-nodesize" min="0.4" max="3" step="0.1" value="${S.nodeSize}"></label>
-    <label class="gs-row">Link thickness<input type="range" id="gs-linkthick" min="0.3" max="4" step="0.1" value="${S.linkThickness}"></label>
-    <label class="gs-row">Text fade threshold<input type="range" id="gs-textfade" min="0" max="2.5" step="0.05" value="${S.textFade}"></label>
-    <div class="gs-section">Forces</div>
-    <label class="gs-row">Center force<input type="range" id="gs-center" min="0" max="1" step="0.05" value="${S.centerForce}"></label>
-    <label class="gs-row">Repel force<input type="range" id="gs-repel" min="0" max="20" step="0.5" value="${S.repelForce}"></label>
-    <label class="gs-row">Link force<input type="range" id="gs-linkforce" min="0" max="1" step="0.05" value="${S.linkForce}"></label>
-    <label class="gs-row">Link distance<input type="range" id="gs-linkdist" min="5" max="300" step="5" value="${S.linkDistance}"></label>
+    <div class="gs-head">
+      <button class="gs-icon" id="gs-reset" title="Restore default settings">↺</button>
+      <button class="gs-icon" id="gs-close" title="Close">×</button>
+    </div>
+
+    <div class="gs-sec" data-sec="filters">
+      <div class="gs-sec-head">Filters</div>
+      <div class="gs-sec-body">
+        <div class="gs-search"><input type="text" id="gs-query" placeholder="Search…  ( text · #tag · -exclude )"></div>
+        <label class="gs-toggle-row">Tags<span class="gs-switch"><input type="checkbox" id="gs-tags"><i></i></span></label>
+        <label class="gs-toggle-row">Attachments<span class="gs-switch"><input type="checkbox" id="gs-attach"><i></i></span></label>
+        <label class="gs-toggle-row">Existing files only<span class="gs-switch"><input type="checkbox" id="gs-existing" checked><i></i></span></label>
+        <label class="gs-toggle-row">Orphans<span class="gs-switch"><input type="checkbox" id="gs-orphans" checked><i></i></span></label>
+      </div>
+    </div>
+
+    <div class="gs-sec" data-sec="groups">
+      <div class="gs-sec-head">Groups</div>
+      <div class="gs-sec-body">
+        <div id="gs-groups"></div>
+        <button class="gs-btn" id="gs-newgroup">New group</button>
+      </div>
+    </div>
+
+    <div class="gs-sec" data-sec="display">
+      <div class="gs-sec-head">Display</div>
+      <div class="gs-sec-body">
+        <label class="gs-toggle-row">Arrows<span class="gs-switch"><input type="checkbox" id="gs-arrows"><i></i></span></label>
+        <label class="gs-row">Text fade threshold<input type="range" id="gs-textfade" min="0" max="2.5" step="0.05" value="${S.textFade}"></label>
+        <label class="gs-row">Node size<input type="range" id="gs-nodesize" min="0.4" max="3" step="0.1" value="${S.nodeSize}"></label>
+        <label class="gs-row">Link thickness<input type="range" id="gs-linkthick" min="0.3" max="4" step="0.1" value="${S.linkThickness}"></label>
+        <button class="gs-btn" id="gs-animate">Animate</button>
+      </div>
+    </div>
+
+    <div class="gs-sec" data-sec="forces">
+      <div class="gs-sec-head">Forces</div>
+      <div class="gs-sec-body">
+        <label class="gs-row">Center force<input type="range" id="gs-center" min="0" max="1" step="0.05" value="${S.centerForce}"></label>
+        <label class="gs-row">Repel force<input type="range" id="gs-repel" min="0" max="20" step="0.5" value="${S.repelForce}"></label>
+        <label class="gs-row">Link force<input type="range" id="gs-linkforce" min="0" max="1" step="0.05" value="${S.linkForce}"></label>
+        <label class="gs-row">Link distance<input type="range" id="gs-linkdist" min="5" max="300" step="5" value="${S.linkDistance}"></label>
+      </div>
+    </div>
   `;
   wrap.appendChild(panel);
 
@@ -291,16 +396,78 @@ window.PLACEHOLDER_GRAPH = {
   });
   panel.addEventListener("mousedown", e=>e.stopPropagation());
   panel.addEventListener("wheel", e=>e.stopPropagation());
+  panel.querySelector("#gs-close").addEventListener("click", ()=> panel.style.display="none");
 
-  const on = (id, fn) => panel.querySelector(id).addEventListener("input", fn);
-  on("#gs-orphans",  e => { S.showOrphans = e.target.checked; applyFilter(); });
-  on("#gs-nodesize", e => { S.nodeSize = +e.target.value; syncNodeSize(); reheat(0.3); });
-  on("#gs-linkthick",e => { S.linkThickness = +e.target.value; syncLinkThickness(); });
-  on("#gs-textfade", e => { S.textFade = +e.target.value; syncLabels(); });
-  on("#gs-center",   e => { S.centerForce = +e.target.value; applyForceSettings(); reheat(0.5); });
-  on("#gs-repel",    e => { S.repelForce = +e.target.value; applyForceSettings(); reheat(0.5); });
-  on("#gs-linkforce",e => { S.linkForce = +e.target.value; applyForceSettings(); reheat(0.5); });
-  on("#gs-linkdist", e => { S.linkDistance = +e.target.value; applyForceSettings(); reheat(0.5); });
+  // collapsible sections
+  panel.querySelectorAll(".gs-sec-head").forEach(h => {
+    h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"));
+  });
+
+  // groups UI
+  const groupsEl = panel.querySelector("#gs-groups");
+  function renderGroups() {
+    groupsEl.innerHTML = groups.map((g,i)=>`
+      <div class="gs-group">
+        <input type="color" value="${g.color}" data-i="${i}" class="gs-gcolor">
+        <input type="text" value="${g.query.replace(/"/g,'&quot;')}" placeholder="query e.g. #tag or 채소" data-i="${i}" class="gs-gquery">
+        <button class="gs-icon gs-gdel" data-i="${i}">×</button>
+      </div>`).join("");
+    groupsEl.querySelectorAll(".gs-gcolor").forEach(inp =>
+      inp.addEventListener("input", e => { groups[+e.target.dataset.i].color = e.target.value; recolor(); }));
+    groupsEl.querySelectorAll(".gs-gquery").forEach(inp =>
+      inp.addEventListener("input", e => { groups[+e.target.dataset.i].query = e.target.value; recolor(); }));
+    groupsEl.querySelectorAll(".gs-gdel").forEach(btn =>
+      btn.addEventListener("click", e => { groups.splice(+e.target.dataset.i,1); renderGroups(); recolor(); }));
+  }
+  panel.querySelector("#gs-newgroup").addEventListener("click", () => {
+    groups.push({query:"", color:"#CD071E"});
+    renderGroups();
+  });
+
+  // wire inputs
+  const $ = id => panel.querySelector(id);
+  let queryTimer;
+  $("#gs-query").addEventListener("input", e => {
+    clearTimeout(queryTimer);
+    queryTimer = setTimeout(()=>{ S.query = e.target.value; applyFilter(); }, 250);
+  });
+  $("#gs-tags").addEventListener("input",     e => { S.showTagNodes = e.target.checked; applyFilter(); });
+  $("#gs-attach").addEventListener("input",   e => { S.showAttachments = e.target.checked; /* no attachments in data */ });
+  $("#gs-existing").addEventListener("input", e => { S.existingOnly = e.target.checked; applyFilter(); });
+  $("#gs-orphans").addEventListener("input",  e => { S.showOrphans = e.target.checked; applyFilter(); });
+  $("#gs-arrows").addEventListener("input",   e => { S.showArrows = e.target.checked; syncArrows(); });
+  $("#gs-textfade").addEventListener("input", e => { S.textFade = +e.target.value; syncLabels(); });
+  $("#gs-nodesize").addEventListener("input", e => { S.nodeSize = +e.target.value; syncNodeSize(); reheat(0.3); });
+  $("#gs-linkthick").addEventListener("input",e => { S.linkThickness = +e.target.value; syncLinkThickness(); });
+  $("#gs-animate").addEventListener("click",  () => { userMoved=false; reheat(1); });
+  $("#gs-center").addEventListener("input",   e => { S.centerForce = +e.target.value; applyForceSettings(); reheat(0.5); });
+  $("#gs-repel").addEventListener("input",    e => { S.repelForce = +e.target.value; applyForceSettings(); reheat(0.5); });
+  $("#gs-linkforce").addEventListener("input",e => { S.linkForce = +e.target.value; applyForceSettings(); reheat(0.5); });
+  $("#gs-linkdist").addEventListener("input", e => { S.linkDistance = +e.target.value; applyForceSettings(); reheat(0.5); });
+
+  $("#gs-reset").addEventListener("click", () => {
+    Object.assign(S, DEFAULTS);
+    groups = [];
+    includedTags.clear();
+    allTags.forEach(t => { if (t !== "#synthetic_node") includedTags.add(t); });
+    // sync UI
+    $("#gs-query").value = "";
+    $("#gs-tags").checked = S.showTagNodes;
+    $("#gs-attach").checked = S.showAttachments;
+    $("#gs-existing").checked = S.existingOnly;
+    $("#gs-orphans").checked = S.showOrphans;
+    $("#gs-arrows").checked = S.showArrows;
+    $("#gs-textfade").value = S.textFade;
+    $("#gs-nodesize").value = S.nodeSize;
+    $("#gs-linkthick").value = S.linkThickness;
+    $("#gs-center").value = S.centerForce;
+    $("#gs-repel").value = S.repelForce;
+    $("#gs-linkforce").value = S.linkForce;
+    $("#gs-linkdist").value = S.linkDistance;
+    renderGroups(); renderChips();
+    syncNodeSize(); syncLinkThickness(); syncLabels(); syncArrows();
+    applyFilter();
+  });
 
   // ── pointer helpers ───────────────────────────────────────────────────────
   function localPoint(evt){
@@ -333,7 +500,7 @@ window.PLACEHOLDER_GRAPH = {
       if (!tooltip) return;
       const p = localPoint(evt);
       tooltip.style.left = p.x+"px"; tooltip.style.top = p.y+"px";
-      const detail = n.url ? `${n.group} · click to open` : n.group;
+      const detail = n.isTag ? "tag" : (n.url ? `${n.group} · click to open` : n.group);
       const tagStr = n.tags.length ? ` <span style="opacity:.6">${n.tags.join(" ")}</span>` : "";
       tooltip.innerHTML = `<span class="kr">${n.label}</span>${detail}${tagStr}`;
       tooltip.style.opacity = "1";
@@ -410,6 +577,6 @@ window.PLACEHOLDER_GRAPH = {
 
   // ── go ────────────────────────────────────────────────────────────────────
   applyVB();
-  renderFilters();
-  applyFilter();   // applies default #synthetic_node hide and starts the sim
+  renderChips();
+  applyFilter();
 })();
