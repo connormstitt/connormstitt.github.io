@@ -135,16 +135,35 @@ function applyRepulsion(n, cell, theta, strength) {
   const applyVB = () => svg.setAttribute("viewBox",`${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   const toWorld = (px,py) => ({x:vb.x+(px/clientW)*vb.w, y:vb.y+(py/clientH)*vb.h});
 
-  function autoFit() {
+  function fitTarget() {
+    // Fit to the 3rd–97th percentile of node positions so a few stray
+    // outliers can't force the whole view to zoom way out.
     const src = activeNodes.length ? activeNodes : nodes;
-    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
-    src.forEach(n=>{ x0=Math.min(x0,n.x);x1=Math.max(x1,n.x);y0=Math.min(y0,n.y);y1=Math.max(y1,n.y); });
-    const pad=50, aspect=clientW/clientH;
-    x0-=pad;y0-=pad;x1+=pad;y1+=pad;
-    let w=x1-x0,h=y1-y0;
-    if(w/h<aspect){const nw=h*aspect;x0-=(nw-w)/2;w=nw;}
-    else{const nh=w/aspect;y0-=(nh-h)/2;h=nh;}
-    vb.x=x0;vb.y=y0;vb.w=w;vb.h=h;applyVB();
+    const xs = src.map(n=>n.x).sort((a,b)=>a-b);
+    const ys = src.map(n=>n.y).sort((a,b)=>a-b);
+    const lo = i => Math.floor(i), q = 0.03;
+    let x0 = xs[lo(xs.length*q)],     y0 = ys[lo(ys.length*q)];
+    let x1 = xs[Math.min(xs.length-1, lo(xs.length*(1-q)))],
+        y1 = ys[Math.min(ys.length-1, lo(ys.length*(1-q)))];
+    const pad = 60, aspect = clientW/clientH;
+    x0-=pad; y0-=pad; x1+=pad; y1+=pad;
+    let w=x1-x0, h=y1-y0;
+    if (w/h < aspect){ const nw=h*aspect; x0-=(nw-w)/2; w=nw; }
+    else             { const nh=w/aspect; y0-=(nh-h)/2; h=nh; }
+    return {x:x0, y:y0, w, h};
+  }
+
+  function autoFit(lerp=0.12) {
+    const t = fitTarget();
+    vb.x += (t.x-vb.x)*lerp; vb.y += (t.y-vb.y)*lerp;
+    vb.w += (t.w-vb.w)*lerp; vb.h += (t.h-vb.h)*lerp;
+    applyVB();
+  }
+
+  function fitNow() {
+    const t = fitTarget();
+    vb.x=t.x; vb.y=t.y; vb.w=t.w; vb.h=t.h;
+    applyVB();
   }
 
   // ── SVG ──────────────────────────────────────────────────────────────────
@@ -236,19 +255,18 @@ function applyRepulsion(n, cell, theta, strength) {
     });
   }
 
-  // ── physics: Barnes-Hut + spring + centering ──────────────────────────────
-  let alpha=1, running=false, draggingNode=null;
-  const REPEL=3200, THETA=0.8, LINK_LEN=60, LINK_K=0.03, CENTER_K=0.0015;
+  // ── physics: Barnes-Hut + spring + gravity, fast-settling ─────────────────
+  let alpha=1, running=false, draggingNode=null, tick=0, simStart=0;
+  const REPEL=3000, THETA=0.85, LINK_LEN=60, LINK_K=0.04, CENTER_K=0.006, VMAX=10;
 
   function step() {
-    // Barnes-Hut repulsion — only active nodes
+    tick++;
     const tree = buildTree(activeNodes);
     activeNodes.forEach(n=>{
       if(n===draggingNode)return;
       applyRepulsion(n, tree, THETA, REPEL*alpha);
     });
 
-    // Spring attraction — only active links
     activeLinks.forEach(l=>{
       const dx=l.target.x-l.source.x, dy=l.target.y-l.source.y;
       const d=Math.sqrt(dx*dx+dy*dy)||0.01;
@@ -258,14 +276,16 @@ function applyRepulsion(n, cell, theta, strength) {
       if(l.target!==draggingNode){l.target.vx-=fx;l.target.vy-=fy;}
     });
 
-    // Centering + integrate + dampen — only active nodes
     const cx=clientW/2, cy=clientH/2;
     activeNodes.forEach(n=>{
       if(n===draggingNode)return;
+      // gravity keeps isolated nodes from flying off
       n.vx+=(cx-n.x)*CENTER_K*alpha;
       n.vy+=(cy-n.y)*CENTER_K*alpha;
-      if(alpha>0.3){n.vx+=(Math.random()-0.5)*0.4;n.vy+=(Math.random()-0.5)*0.4;}
-      n.vx*=0.78; n.vy*=0.78;
+      n.vx*=0.7; n.vy*=0.7;
+      // hard velocity cap kills bouncing
+      const v=Math.hypot(n.vx,n.vy);
+      if(v>VMAX){n.vx*=VMAX/v;n.vy*=VMAX/v;}
       n.x+=n.vx; n.y+=n.vy;
     });
 
@@ -278,12 +298,21 @@ function applyRepulsion(n, cell, theta, strength) {
     nodeGroups.forEach((g,i)=>g.setAttribute("transform",`translate(${nodes[i].x},${nodes[i].y})`));
 
     if(!userMoved) autoFit();
-    alpha*=0.994;
-    if(alpha>0.01||draggingNode) requestAnimationFrame(step);
-    else running=false;
+    alpha*=0.962;
+    // hard time cap so the sim always settles in ~3s regardless of frame rate
+    if(performance.now()-simStart > 3000 && !draggingNode) alpha = 0.004;
+    if(alpha>0.005||draggingNode) requestAnimationFrame(step);
+    else {
+      running=false;
+      if(!userMoved) fitNow();          // final crisp fit once settled
+    }
   }
 
-  function kick(a=1){alpha=Math.max(alpha,a);if(!running){running=true;requestAnimationFrame(step);}}
+  function kick(a=1){
+    alpha=Math.max(alpha,a);
+    simStart=performance.now();
+    if(!running){running=true;requestAnimationFrame(step);}
+  }
 
   // ── pointer helpers ───────────────────────────────────────────────────────
   function localPoint(evt){
@@ -349,9 +378,9 @@ function applyRepulsion(n, cell, theta, strength) {
   // ── wheel zoom ────────────────────────────────────────────────────────────
   function onWheel(evt){
     evt.preventDefault();evt.stopPropagation();userMoved=true;
-    const factor=evt.deltaY>0?1.2:1/1.2;
+    const factor=evt.deltaY>0?1.3:1/1.3;
     const scale=clientW/(vb.w*factor);
-    if(scale<0.02||scale>12)return;
+    if(scale<0.005||scale>25)return;
     const p=localPoint(evt),w=toWorld(p.x,p.y);
     vb.x=w.x-(w.x-vb.x)*factor;vb.y=w.y-(w.y-vb.y)*factor;
     vb.w*=factor;vb.h*=factor;applyVB();
@@ -363,6 +392,25 @@ function applyRepulsion(n, cell, theta, strength) {
     clientW=wrap.clientWidth;clientH=wrap.clientHeight;
     if(!userMoved)autoFit();
   });
+
+  // ── zoom buttons: always-working fallback for zoom ────────────────────────
+  const btns = document.createElement("div");
+  btns.className = "zoom-btns";
+  btns.innerHTML = `<button data-z="in">+</button><button data-z="out">−</button><button data-z="fit">⤢</button>`;
+  wrap.appendChild(btns);
+  function zoomCenter(factor){
+    userMoved = true;
+    const w = {x: vb.x+vb.w/2, y: vb.y+vb.h/2};
+    vb.x = w.x - (w.x-vb.x)*factor; vb.y = w.y - (w.y-vb.y)*factor;
+    vb.w *= factor; vb.h *= factor; applyVB();
+  }
+  btns.addEventListener("click", e=>{
+    const z = e.target.dataset.z;
+    if (z==="in")  zoomCenter(1/1.4);
+    else if (z==="out") zoomCenter(1.4);
+    else if (z==="fit") { userMoved=false; fitNow(); }
+  });
+  btns.addEventListener("mousedown", e=>e.stopPropagation());
 
   applyVB();
   renderFilters();
