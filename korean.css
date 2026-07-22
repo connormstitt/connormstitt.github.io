@@ -227,6 +227,33 @@ body {
     margin: 0 4px;
 }
 
+.zoom-btns {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 4;
+}
+
+.zoom-btns button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.92);
+    color: var(--psu-blue);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.zoom-btns button:hover {
+    background: var(--psu-blue);
+    color: white;
+}
+
 .dot-topic { background: var(--node-topic); }
 .dot-vocab { background: var(--node-vocab); }
 .dot-grammar { background: var(--node-grammar); }
