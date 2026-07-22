@@ -277,3 +277,71 @@ body {
     padding: 0 0.3em;
     color: var(--psu-navy);
 }
+
+.graph-gear {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 5;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    background: rgba(255,255,255,0.92);
+    color: var(--psu-blue);
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.graph-gear:hover {
+    background: var(--psu-blue);
+    color: white;
+}
+
+.graph-settings {
+    position: absolute;
+    top: 48px;
+    right: 12px;
+    z-index: 5;
+    width: 230px;
+    background: rgba(255,255,255,0.97);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-family: 'Roboto', sans-serif;
+    font-size: 0.78rem;
+    color: var(--text);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+}
+
+.gs-section {
+    font-family: 'Roboto Condensed', sans-serif;
+    font-weight: 700;
+    color: var(--psu-blue);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.68rem;
+    margin: 10px 0 4px 0;
+}
+
+.gs-section:first-child {
+    margin-top: 0;
+}
+
+.gs-row {
+    display: block;
+    margin: 6px 0;
+    color: var(--muted);
+}
+
+.gs-row input[type="range"] {
+    width: 100%;
+    display: block;
+    margin-top: 2px;
+    accent-color: var(--psu-blue);
+}
+
+.gs-check input {
+    margin-right: 6px;
+    accent-color: var(--psu-blue);
+}

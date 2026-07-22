@@ -27,7 +27,7 @@
   <main class="main">
 
     <div class="placeholder-notice">
-      <strong>Demo data.</strong> Currently showing a sample vault export. Drag nodes, scroll to zoom, drag the background to pan, click a note to open it. To go live: export the vocab vault with Webpage HTML Export, drop it in <code>vault/</code>, run <code>python3 tools/build-graph.py vault</code>.
+      Drag nodes &middot; scroll to zoom &middot; drag the background to pan &middot; click a tag chip to filter (the layout re-estimates). To update the graph: run the export snippet in Obsidian's dev console, then paste the clipboard into <code>korean-graph-data.js</code>.
     </div>
 
     <div class="graph-card">
@@ -45,6 +45,7 @@
 
   </main>
 
+  <script src="d3.v7.min.js"></script>
   <script src="korean-graph-data.js"></script>
   <script src="korean-graph.js" defer></script>
 </body>
