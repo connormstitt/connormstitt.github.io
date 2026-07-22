@@ -185,11 +185,9 @@ function applyRepulsion(n, cell, theta, strength) {
     svg.appendChild(g); return g;
   });
 
-  // ── tag filter ────────────────────────────────────────────────────────────
+  // ── tag filter (tags only; #synthetic_node hidden by default) ─────────────
   const hiddenTags = new Set();
-
-  // ── filter: tags (if present) + groups ───────────────────────────────────
-  const hiddenGroups = new Set();
+  if (allTags.includes("#synthetic_node")) hiddenTags.add("#synthetic_node");
 
   // activeNodes / activeLinks are what the physics actually simulates
   let activeNodes = nodes.slice();
@@ -198,46 +196,45 @@ function applyRepulsion(n, cell, theta, strength) {
   function applyFilter() {
     const visibleIds = new Set();
     nodes.forEach((n,i)=>{
-      const hide = n.tags.some(t=>hiddenTags.has(t)) || hiddenGroups.has(n.group);
+      const hide = n.tags.some(t=>hiddenTags.has(t));
       nodeGroups[i].style.display = hide ? "none" : "";
       if (!hide) visibleIds.add(n.id);
     });
     linkEls.forEach((line,i)=>{
       const s=links[i].source, t=links[i].target;
-      const show = visibleIds.has(s.id) && visibleIds.has(t.id);
-      line.style.display = show ? "" : "none";
+      line.style.display = (visibleIds.has(s.id) && visibleIds.has(t.id)) ? "" : "none";
     });
 
-    // Re-scope simulation to visible nodes/links only, then re-run physics
+    // Re-scope the simulation to visible nodes/links, then re-estimate layout
     activeNodes = nodes.filter(n => visibleIds.has(n.id));
     activeLinks = links.filter(l => visibleIds.has(l.source.id) && visibleIds.has(l.target.id));
-    userMoved = false; // re-fit the camera to visible nodes
-    kick(1);
+    userMoved = false;      // camera re-fits to the new layout
+    kick(1);                // full re-run of the force simulation
 
     updateCount(visibleIds.size);
   }
 
   function renderFilters() {
     if (!filterEl) return;
-    const tagChips = allTags.map(t =>
-      `<button class="tag-chip${hiddenTags.has(t)?" active":""}" data-kind="tag" data-val="${t}">${t}</button>`
-    ).join("");
-    const groupChips = groupOrder.map(g =>
-      `<button class="tag-chip${hiddenGroups.has(g)?" active":""}" data-kind="group" data-val="${g}">${g}</button>`
-    ).join("");
-    const sep = allTags.length && groupChips ? `<span class="chip-sep">|</span>` : "";
+    if (allTags.length === 0) {
+      filterEl.innerHTML = usingVault
+        ? `<span class="chip-label">no tags in data — re-run the console snippet (tag-capturing version) and re-paste into korean-graph-data.js</span>`
+        : "";
+      return;
+    }
     filterEl.innerHTML =
-      `<span class="chip-label">hide:</span>${tagChips}${sep}${groupChips}`;
+      `<span class="chip-label">hide:</span>` +
+      allTags.map(t =>
+        `<button class="tag-chip${hiddenTags.has(t)?" active":""}" data-val="${t}">${t}</button>`
+      ).join("");
     filterEl.querySelectorAll(".tag-chip").forEach(btn=>{
       btn.addEventListener("click",()=>{
-        const {kind,val} = btn.dataset;
-        const set = kind==="tag" ? hiddenTags : hiddenGroups;
-        set.has(val) ? set.delete(val) : set.add(val);
+        const val = btn.dataset.val;
+        hiddenTags.has(val) ? hiddenTags.delete(val) : hiddenTags.add(val);
         applyFilter(); renderFilters();
       });
     });
   }
-  renderFilters();
 
   // ── physics: Barnes-Hut + spring + centering ──────────────────────────────
   let alpha=1, running=false, draggingNode=null;
@@ -368,5 +365,6 @@ function applyRepulsion(n, cell, theta, strength) {
   });
 
   applyVB();
-  kick(1);
+  renderFilters();
+  applyFilter();   // applies the default #synthetic_node filter and starts the sim
 })();
