@@ -97,7 +97,7 @@ body {
     width: 100%;
     max-width: 1100px;
     margin: 0 auto;
-    padding: clamp(8px, 1.4vh, 16px) clamp(14px, 2vw, 24px);
+    padding: clamp(8px, 1.4vh, 16px) clamp(14px, 2vw, 24px) clamp(22px, 3.5vh, 40px);
     gap: clamp(6px, 1.2vh, 12px);
 }
 
@@ -298,50 +298,167 @@ body {
     color: white;
 }
 
+
+
+
+
+
+
+/* ── Obsidian-style settings panel ── */
 .graph-settings {
     position: absolute;
     top: 48px;
     right: 12px;
-    z-index: 5;
-    width: 230px;
-    background: rgba(255,255,255,0.97);
+    z-index: 6;
+    width: 250px;
+    max-height: calc(100% - 60px);
+    overflow-y: auto;
+    background: rgba(255,255,255,0.98);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 0 12px 0;
+    font-family: 'Roboto', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+.gs-head {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    padding: 0 10px 4px 10px;
+}
+
+.gs-icon {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    line-height: 1;
+}
+
+.gs-icon:hover { background: #eef1f7; color: var(--psu-blue); }
+
+.gs-sec { border-top: 1px solid #eef0f5; }
+
+.gs-sec-head {
+    font-weight: 500;
+    padding: 9px 14px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.gs-sec-head::before {
+    content: "▾";
+    font-size: 0.7em;
+    margin-right: 7px;
+    color: var(--muted);
+    display: inline-block;
+}
+
+.gs-sec.collapsed .gs-sec-head::before { content: "▸"; }
+.gs-sec.collapsed .gs-sec-body { display: none; }
+
+.gs-sec-body { padding: 0 14px 10px 14px; }
+
+.gs-search input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 9px;
     border: 1px solid var(--border);
     border-radius: 6px;
-    padding: 10px 14px;
-    font-family: 'Roboto', sans-serif;
     font-size: 0.78rem;
+    font-family: 'Roboto', sans-serif;
+    margin-bottom: 8px;
+}
+
+.gs-search input:focus { outline: 2px solid rgba(30,64,124,0.3); }
+
+.gs-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
     color: var(--text);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+    cursor: pointer;
 }
 
-.gs-section {
-    font-family: 'Roboto Condensed', sans-serif;
-    font-weight: 700;
-    color: var(--psu-blue);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.68rem;
-    margin: 10px 0 4px 0;
+/* Obsidian-style toggle switch */
+.gs-switch { position: relative; display: inline-block; width: 34px; height: 19px; }
+.gs-switch input { opacity: 0; width: 0; height: 0; }
+.gs-switch i {
+    position: absolute; inset: 0;
+    background: #cdd3de;
+    border-radius: 10px;
+    transition: background 0.15s;
 }
-
-.gs-section:first-child {
-    margin-top: 0;
+.gs-switch i::after {
+    content: "";
+    position: absolute;
+    width: 15px; height: 15px;
+    left: 2px; top: 2px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
 }
+.gs-switch input:checked + i { background: #2f6fed; }
+.gs-switch input:checked + i::after { transform: translateX(15px); }
 
 .gs-row {
     display: block;
-    margin: 6px 0;
-    color: var(--muted);
+    padding: 5px 0 2px 0;
+    color: var(--text);
 }
 
 .gs-row input[type="range"] {
     width: 100%;
     display: block;
-    margin-top: 2px;
-    accent-color: var(--psu-blue);
+    margin-top: 3px;
+    accent-color: #2f6fed;
 }
 
-.gs-check input {
-    margin-right: 6px;
-    accent-color: var(--psu-blue);
+.gs-btn {
+    width: 100%;
+    padding: 7px 0;
+    margin-top: 6px;
+    background: #2f6fed;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    cursor: pointer;
+}
+
+.gs-btn:hover { background: #1e5bd4; }
+
+.gs-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 5px 0;
+}
+
+.gs-group input[type="color"] {
+    width: 26px; height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.gs-group input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 7px;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    font-size: 0.74rem;
 }
