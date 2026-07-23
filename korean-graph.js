@@ -69,6 +69,13 @@ window.PLACEHOLDER_GRAPH = {
     (PALETTE[groupOrder.indexOf(n.group) % PALETTE.length] || "#888");
 
   const allTags = [...new Set(raw.nodes.flatMap(n => n.tags || []))].sort();
+  const edgeTypes = [...new Set((raw.links||[]).map(l => l.type || "link"))].sort();
+  const EDGE_COLORS = ["rgba(30,64,124,0.25)","rgba(205,7,30,0.4)","rgba(63,143,122,0.45)",
+                       "rgba(217,169,0,0.5)","rgba(124,107,176,0.45)","rgba(196,106,79,0.45)"];
+  const edgeColorOf = t => edgeTypes.length > 1
+      ? EDGE_COLORS[edgeTypes.indexOf(t || "link") % EDGE_COLORS.length]
+      : "rgba(30,64,124,0.2)";
+  const includedEdgeTypes = new Set(edgeTypes);
 
   const updateCount = visN => {
     if (!countEl) return;
@@ -78,14 +85,21 @@ window.PLACEHOLDER_GRAPH = {
   };
 
   // ── node & link objects (notes + tag nodes) ───────────────────────────────
-  const noteNodes = raw.nodes.map(n => ({
-    ...n,
-    tags: n.tags || [],
-    url: usingVault && n.id.endsWith(".md") ? "vault/"+n.id : (n.url || null),
-    baseR: Math.max(3.5, Math.min(12, 3.5 + 1.5*Math.sqrt(n.deg||1))),
-    x: clientW/2 + (Math.random()-0.5)*clientW*0.5,
-    y: clientH/2 + (Math.random()-0.5)*clientH*0.5,
-  }));
+  // seed each group's nodes around its own compass angle: this breaks the
+  // start-up symmetry so group gravity can form distinct free-floating clusters
+  const seedR = Math.min(clientW, clientH) * 0.42;
+  const noteNodes = raw.nodes.map(n => {
+    const gi = groupOrder.indexOf(n.group);
+    const ang = (gi / Math.max(1, groupOrder.length)) * Math.PI * 2;
+    return {
+      ...n,
+      tags: n.tags || [],
+      url: usingVault && n.id.endsWith(".md") ? "vault/"+n.id : (n.url || null),
+      baseR: Math.max(3.5, Math.min(12, 3.5 + 1.5*Math.sqrt(n.deg||1))),
+      x: clientW/2 + Math.cos(ang)*seedR + (Math.random()-0.5)*170,
+      y: clientH/2 + Math.sin(ang)*seedR + (Math.random()-0.5)*170,
+    };
+  });
   const tagNodes = allTags.map(t => ({
     id: "tag:"+t, label: t, group: "(tag)", tags: [], isTag: true, url: null,
     baseR: 6,
@@ -97,7 +111,7 @@ window.PLACEHOLDER_GRAPH = {
 
   const noteLinks = (raw.links||[])
     .filter(l => nodeById[l.source] && nodeById[l.target])
-    .map(l => ({ source: nodeById[l.source], target: nodeById[l.target], isTagLink:false }));
+    .map(l => ({ source: nodeById[l.source], target: nodeById[l.target], type: l.type || "link", isTagLink:false }));
   const tagLinks = [];
   noteNodes.forEach(n => n.tags.forEach(t => {
     tagLinks.push({ source: n, target: nodeById["tag:"+t], isTagLink:true });
@@ -144,9 +158,9 @@ window.PLACEHOLDER_GRAPH = {
       <path d="M0,0 L8,4 L0,8 z" fill="rgba(30,64,124,0.45)"/></marker>`;
   svg.appendChild(defs);
 
-  const linkEls = links.map(() => {
+  const linkEls = links.map((l) => {
     const line = document.createElementNS(svgNS,"line");
-    line.setAttribute("stroke","rgba(30,64,124,0.2)");
+    line.setAttribute("stroke", l.isTagLink ? "rgba(152,163,184,0.35)" : edgeColorOf(l.type));
     line.setAttribute("stroke-width", S.linkThickness);
     svg.appendChild(line);
     return line;
@@ -227,6 +241,42 @@ window.PLACEHOLDER_GRAPH = {
   }
 
   // ── d3 force simulation ───────────────────────────────────────────────────
+  // constant-magnitude pull toward center: holds the graph together without
+  // creating a circular envelope (a linear spring always makes a disc)
+  function constantGravity() {
+    let ns;
+    function force(alpha) {
+      const G = S.centerForce * 2.6 * alpha;
+      if (G <= 0) return;
+      const cx = clientW/2, cy = clientH/2;
+      // group centroids: nodes drift toward their folder-siblings, so even
+      // unlinked notes form meaningful clusters instead of a uniform fog
+      const cents = {};
+      for (const n of ns) {
+        if (n.isTag) continue;
+        const c = (cents[n.group] ??= {x:0, y:0, c:0});
+        c.x += n.x; c.y += n.y; c.c++;
+      }
+      for (const k in cents) { cents[k].x /= cents[k].c; cents[k].y /= cents[k].c; }
+      for (const n of ns) {
+        const cent = (!n.isTag && cents[n.group] && cents[n.group].c > 2) ? cents[n.group] : null;
+        if (cent) {
+          let dx = cent.x - n.x, dy = cent.y - n.y;
+          const d = Math.hypot(dx, dy) || 1;
+          n.vx += (dx/d) * G;
+          n.vy += (dy/d) * G;
+        }
+        // faint global pull keeps clusters from drifting off entirely
+        let dx = cx - n.x, dy = cy - n.y;
+        const d = Math.hypot(dx, dy) || 1;
+        n.vx += (dx/d) * G * 0.35;
+        n.vy += (dy/d) * G * 0.35;
+      }
+    }
+    force.initialize = arr => ns = arr;
+    return force;
+  }
+
   function linkStrength(l) {
     const cnt = id => activeLinks.reduce((a,x)=>a+(x.source.id===id||x.target.id===id?1:0),0);
     return S.linkForce * Math.min(1, 1/Math.min(cnt(l.source.id), cnt(l.target.id)));
@@ -234,13 +284,12 @@ window.PLACEHOLDER_GRAPH = {
 
   const sim = d3.forceSimulation(activeNodes)
     .force("link", d3.forceLink(activeLinks).distance(() => S.linkDistance))
-    .force("charge", d3.forceManyBody().distanceMax(500))
-    .force("x", d3.forceX(clientW/2))
-    .force("y", d3.forceY(clientH/2))
+    .force("charge", d3.forceManyBody())
+    .force("gravity", constantGravity())
     .force("collide", d3.forceCollide().radius(n => n.baseR*S.nodeSize + 2))
     .velocityDecay(0.4)
     .alphaMin(0.003)
-    .alphaDecay(0.035)
+    .alphaDecay(0.028)
     .on("tick", () => {
       linkEls.forEach((line,i)=>{
         line.setAttribute("x1",links[i].source.x);
@@ -255,9 +304,7 @@ window.PLACEHOLDER_GRAPH = {
 
   function applyForceSettings() {
     sim.force("link").strength(linkStrength).distance(() => S.linkDistance);
-    sim.force("charge").strength(-S.repelForce * 30);
-    sim.force("x").strength(S.centerForce * 0.12);
-    sim.force("y").strength(S.centerForce * 0.12);
+    sim.force("charge").strength(-S.repelForce * 10);
   }
   function reheat(a=1){ sim.alpha(a).restart(); }
 
@@ -277,7 +324,7 @@ window.PLACEHOLDER_GRAPH = {
     if (!S.showOrphans) {
       const linked = new Set();
       noteLinks.forEach(l => {
-        if (visIds.has(l.source.id) && visIds.has(l.target.id)) {
+        if (includedEdgeTypes.has(l.type) && visIds.has(l.source.id) && visIds.has(l.target.id)) {
           linked.add(l.source.id); linked.add(l.target.id);
         }
       });
@@ -300,7 +347,7 @@ window.PLACEHOLDER_GRAPH = {
       const l = links[i];
       const show = l.isTagLink
         ? (S.showTagNodes && visIds.has(l.source.id) && visTagIds.has(l.target.id))
-        : (allVis.has(l.source.id) && allVis.has(l.target.id));
+        : (includedEdgeTypes.has(l.type) && allVis.has(l.source.id) && allVis.has(l.target.id));
       line.style.display = show ? "" : "none";
     });
 
@@ -360,6 +407,11 @@ window.PLACEHOLDER_GRAPH = {
       </div>
     </div>
 
+    <div class="gs-sec" data-sec="edges" id="gs-edges-sec">
+      <div class="gs-sec-head">Edges</div>
+      <div class="gs-sec-body" id="gs-edges"></div>
+    </div>
+
     <div class="gs-sec" data-sec="groups">
       <div class="gs-sec-head">Groups</div>
       <div class="gs-sec-body">
@@ -402,6 +454,25 @@ window.PLACEHOLDER_GRAPH = {
   panel.querySelectorAll(".gs-sec-head").forEach(h => {
     h.addEventListener("click", () => h.parentElement.classList.toggle("collapsed"));
   });
+
+  // edges UI: one toggle per edge:: type
+  const edgesSec = panel.querySelector("#gs-edges-sec");
+  const edgesBody = panel.querySelector("#gs-edges");
+  function renderEdgeToggles() {
+    if (edgeTypes.length <= 1) { edgesSec.style.display = "none"; return; }
+    edgesBody.innerHTML = edgeTypes.map(t => `
+      <label class="gs-toggle-row"><span><span class="edge-dot" style="background:${edgeColorOf(t)}"></span>${t}</span>
+        <span class="gs-switch"><input type="checkbox" data-etype="${t}" ${includedEdgeTypes.has(t)?"checked":""}><i></i></span>
+      </label>`).join("");
+    edgesBody.querySelectorAll("input[data-etype]").forEach(inp => {
+      inp.addEventListener("input", e => {
+        const t = e.target.dataset.etype;
+        e.target.checked ? includedEdgeTypes.add(t) : includedEdgeTypes.delete(t);
+        applyFilter();
+      });
+    });
+  }
+  renderEdgeToggles();
 
   // groups UI
   const groupsEl = panel.querySelector("#gs-groups");
@@ -464,6 +535,9 @@ window.PLACEHOLDER_GRAPH = {
     $("#gs-repel").value = S.repelForce;
     $("#gs-linkforce").value = S.linkForce;
     $("#gs-linkdist").value = S.linkDistance;
+    includedEdgeTypes.clear();
+    edgeTypes.forEach(t => includedEdgeTypes.add(t));
+    renderEdgeToggles();
     renderGroups(); renderChips();
     syncNodeSize(); syncLinkThickness(); syncLabels(); syncArrows();
     applyFilter();
