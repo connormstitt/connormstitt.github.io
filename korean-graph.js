@@ -69,13 +69,32 @@ window.PLACEHOLDER_GRAPH = {
     (PALETTE[groupOrder.indexOf(n.group) % PALETTE.length] || "#888");
 
   const allTags = [...new Set(raw.nodes.flatMap(n => n.tags || []))].sort();
-  const edgeTypes = [...new Set((raw.links||[]).map(l => l.type || "link"))].sort();
-  const EDGE_COLORS = ["rgba(30,64,124,0.25)","rgba(205,7,30,0.4)","rgba(63,143,122,0.45)",
-                       "rgba(217,169,0,0.5)","rgba(124,107,176,0.45)","rgba(196,106,79,0.45)"];
-  const edgeColorOf = t => edgeTypes.length > 1
-      ? EDGE_COLORS[edgeTypes.indexOf(t || "link") % EDGE_COLORS.length]
-      : "rgba(30,64,124,0.2)";
-  const includedEdgeTypes = new Set(edgeTypes);
+  // Named palette for the vocab vault's edge:: types (matches your glossary).
+  // Any type not in this map falls through to a group-hash color, so new types
+  // (e.g. `subcat`) get a stable color the moment data starts using them.
+  const EDGE_TYPE_COLORS = {
+    "hanja":     "rgba(205, 7, 30, 0.55)",     // deep red — etymological root
+    "cat":       "rgba(30, 64, 124, 0.45)",    // navy — is-a hierarchy
+    "subcat":    "rgba(60, 100, 180, 0.42)",   // lighter navy — sub-hierarchy
+    "haspart":   "rgba(63, 143, 122, 0.55)",   // green — composition (down)
+    "partof":    "rgba(140, 190, 100, 0.55)",  // lime — composition (up)
+    "rel":       "rgba(217, 169, 0, 0.65)",    // gold — peer synonym
+    "homophone": "rgba(196, 106, 79, 0.55)",   // terracotta — sound-only pair
+    "conj":      "rgba(124, 107, 176, 0.55)",  // violet — conjugation
+    "pos":       "rgba(120, 130, 145, 0.40)",  // slate — grammatical category
+    "link":      "rgba(160, 170, 190, 0.35)",  // untyped body wikilinks
+  };
+  const EDGE_TYPE_ORDER = ["hanja","cat","subcat","haspart","partof","rel","homophone","conj","pos","link"];
+
+  const edgeTypesInData = [...new Set((raw.links||[]).map(l => l.type || "link"))];
+  // Present all known types (so `subcat` shows up as a toggle even without data),
+  // plus any unknown types found in data (future-proofing).
+  const edgeTypes = [
+    ...EDGE_TYPE_ORDER.filter(t => t === "subcat" || edgeTypesInData.includes(t)),
+    ...edgeTypesInData.filter(t => !EDGE_TYPE_ORDER.includes(t)),
+  ];
+  const edgeColorOf = t => EDGE_TYPE_COLORS[t || "link"] || "rgba(30, 64, 124, 0.3)";
+  const includedEdgeTypes = new Set(edgeTypesInData);
 
   const updateCount = visN => {
     if (!countEl) return;
@@ -241,42 +260,6 @@ window.PLACEHOLDER_GRAPH = {
   }
 
   // ── d3 force simulation ───────────────────────────────────────────────────
-  // constant-magnitude pull toward center: holds the graph together without
-  // creating a circular envelope (a linear spring always makes a disc)
-  function constantGravity() {
-    let ns;
-    function force(alpha) {
-      const G = S.centerForce * 2.6 * alpha;
-      if (G <= 0) return;
-      const cx = clientW/2, cy = clientH/2;
-      // group centroids: nodes drift toward their folder-siblings, so even
-      // unlinked notes form meaningful clusters instead of a uniform fog
-      const cents = {};
-      for (const n of ns) {
-        if (n.isTag) continue;
-        const c = (cents[n.group] ??= {x:0, y:0, c:0});
-        c.x += n.x; c.y += n.y; c.c++;
-      }
-      for (const k in cents) { cents[k].x /= cents[k].c; cents[k].y /= cents[k].c; }
-      for (const n of ns) {
-        const cent = (!n.isTag && cents[n.group] && cents[n.group].c > 2) ? cents[n.group] : null;
-        if (cent) {
-          let dx = cent.x - n.x, dy = cent.y - n.y;
-          const d = Math.hypot(dx, dy) || 1;
-          n.vx += (dx/d) * G;
-          n.vy += (dy/d) * G;
-        }
-        // faint global pull keeps clusters from drifting off entirely
-        let dx = cx - n.x, dy = cy - n.y;
-        const d = Math.hypot(dx, dy) || 1;
-        n.vx += (dx/d) * G * 0.35;
-        n.vy += (dy/d) * G * 0.35;
-      }
-    }
-    force.initialize = arr => ns = arr;
-    return force;
-  }
-
   function linkStrength(l) {
     const cnt = id => activeLinks.reduce((a,x)=>a+(x.source.id===id||x.target.id===id?1:0),0);
     return S.linkForce * Math.min(1, 1/Math.min(cnt(l.source.id), cnt(l.target.id)));
@@ -285,7 +268,7 @@ window.PLACEHOLDER_GRAPH = {
   const sim = d3.forceSimulation(activeNodes)
     .force("link", d3.forceLink(activeLinks).distance(() => S.linkDistance))
     .force("charge", d3.forceManyBody())
-    .force("gravity", constantGravity())
+    // gravity removed: no centering force → free-form organic layout
     .force("collide", d3.forceCollide().radius(n => n.baseR*S.nodeSize + 2))
     .velocityDecay(0.4)
     .alphaMin(0.003)
@@ -308,15 +291,12 @@ window.PLACEHOLDER_GRAPH = {
   }
   function reheat(a=1){ sim.alpha(a).restart(); }
 
-  // ── include-style tag chips (#synthetic_node off by default) ──────────────
-  const includedTags = new Set(allTags.filter(t => t !== "#synthetic_node"));
+  // (Tag include-set removed with the chip bar; use search query for tag filtering.)
 
   // ── the master filter pipeline ────────────────────────────────────────────
   function applyFilter() {
     // 1. existing files only
     let vis = noteNodes.filter(n => !(S.existingOnly && n.missing));
-    // 2. include-tags: untagged always pass; tagged need >=1 included tag
-    vis = vis.filter(n => n.tags.length === 0 || n.tags.some(t => includedTags.has(t)));
     // 3. search query
     if (S.query.trim()) vis = vis.filter(n => matchQuery(n, S.query));
     let visIds = new Set(vis.map(n=>n.id));
@@ -364,22 +344,6 @@ window.PLACEHOLDER_GRAPH = {
     updateCount(visIds.size);
   }
 
-  function renderChips() {
-    if (!filterEl) return;
-    if (allTags.length === 0) { filterEl.innerHTML = ""; return; }
-    filterEl.innerHTML =
-      `<span class="chip-label">show:</span>` +
-      allTags.map(t =>
-        `<button class="tag-chip${includedTags.has(t)?" active":""}" data-val="${t}">${t}</button>`
-      ).join("");
-    filterEl.querySelectorAll(".tag-chip").forEach(btn=>{
-      btn.addEventListener("click",()=>{
-        const v = btn.dataset.val;
-        includedTags.has(v) ? includedTags.delete(v) : includedTags.add(v);
-        applyFilter(); renderChips();
-      });
-    });
-  }
 
   // ── settings panel (Obsidian-style) ───────────────────────────────────────
   const gear = document.createElement("button");
@@ -519,8 +483,6 @@ window.PLACEHOLDER_GRAPH = {
   $("#gs-reset").addEventListener("click", () => {
     Object.assign(S, DEFAULTS);
     groups = [];
-    includedTags.clear();
-    allTags.forEach(t => { if (t !== "#synthetic_node") includedTags.add(t); });
     // sync UI
     $("#gs-query").value = "";
     $("#gs-tags").checked = S.showTagNodes;
@@ -538,7 +500,7 @@ window.PLACEHOLDER_GRAPH = {
     includedEdgeTypes.clear();
     edgeTypes.forEach(t => includedEdgeTypes.add(t));
     renderEdgeToggles();
-    renderGroups(); renderChips();
+    renderGroups();
     syncNodeSize(); syncLinkThickness(); syncLabels(); syncArrows();
     applyFilter();
   });
@@ -651,6 +613,5 @@ window.PLACEHOLDER_GRAPH = {
 
   // ── go ────────────────────────────────────────────────────────────────────
   applyVB();
-  renderChips();
   applyFilter();
 })();
